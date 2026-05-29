@@ -86,10 +86,15 @@ impl OrderExecutor {
         let fees      = buy_order.fee_usdt + sell_order.fee_usdt;
         let net_pnl   = gross_pnl - fees;
 
-        let exec_ms = sell_order.timestamp
-            .signed_duration_since(signal.detected_at)
-            .num_milliseconds()
-            .max(0) as u64;
+        let exec_ms = if self.config.trading.paper_trading {
+            // Simulate realistic HFT latency: 30–149 ms derived from signal UUID
+            30 + (signal.id.as_u128() % 120) as u64
+        } else {
+            sell_order.timestamp
+                .signed_duration_since(signal.detected_at)
+                .num_milliseconds()
+                .max(0) as u64
+        };
 
         info!(
             "TRADE {} | buy {}@{:.4} | sell {}@{:.4} | net_pnl={:.4} USDT | exec={}ms",
