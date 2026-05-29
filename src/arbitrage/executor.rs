@@ -1,5 +1,6 @@
 use crate::{
     config::Config,
+    dashboard::state::DashboardState,
     exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector},
     metrics::MetricsCollector,
     orderbook::SharedPriceState,
@@ -21,6 +22,7 @@ pub struct OrderExecutor {
     mexc: Arc<MexcConnector>,
     risk: Arc<RiskManager>,
     metrics: Arc<MetricsCollector>,
+    dashboard: Arc<DashboardState>,
 }
 
 impl OrderExecutor {
@@ -32,8 +34,9 @@ impl OrderExecutor {
         mexc: Arc<MexcConnector>,
         risk: Arc<RiskManager>,
         metrics: Arc<MetricsCollector>,
+        dashboard: Arc<DashboardState>,
     ) -> Self {
-        Self { config, price_state, binance, bybit, mexc, risk, metrics }
+        Self { config, price_state, binance, bybit, mexc, risk, metrics, dashboard }
     }
 
     pub async fn run(self: Arc<Self>, mut rx: mpsc::Receiver<ArbitrageSignal>) {
@@ -58,6 +61,7 @@ impl OrderExecutor {
             Ok(trade) => {
                 self.risk.on_trade_close(trade.net_pnl);
                 self.metrics.record(&trade);
+                self.dashboard.push_trade(&trade);
             }
             Err(e) => {
                 error!("Execution failed for signal {}: {:#}", signal.id, e);
@@ -70,7 +74,6 @@ impl OrderExecutor {
         let qty = signal.quantity;
         let ps  = &self.price_state;
 
-        // Both legs fire concurrently to minimise leg risk
         let (buy_res, sell_res) = tokio::join!(
             self.place(signal.buy_market.exchange,  signal.buy_market.market_type,  Side::Buy,  qty, ps),
             self.place(signal.sell_market.exchange, signal.sell_market.market_type, Side::Sell, qty, ps),
