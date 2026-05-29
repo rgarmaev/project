@@ -1,0 +1,36 @@
+[trading]
+symbol = "SOL"
+quote  = "USDT"
+
+# Minimum net spread (after fees) to trigger a trade: 0.001 = 0.1%
+min_spread_pct   = "0.001"
+
+# USDT notional per leg
+trade_size_usdt  = "200"
+
+# Maximum allowed slippage vs quoted price
+max_slippage_pct = "0.0005"
+
+# Set to false to execute real orders
+paper_trading = true
+
+[risk]
+max_position_usdt  = "2000"
+max_daily_loss_usdt = "100"
+max_open_trades    = 3
+cooldown_ms        = 500   # minimum ms between consecutive signals
+
+[binance]
+api_key    = ""   # override with BINANCE_API_KEY env var
+api_secret = ""
+testnet    = true
+
+[bybit]
+api_key    = ""   # override with BYBIT_API_KEY env var
+api_secret = ""
+testnet    = true
+
+[mexc]
+api_key    = ""   # override with MEXC_API_KEY env var
+api_secret = ""
+testnet    = false
