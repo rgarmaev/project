@@ -108,12 +108,15 @@ async fn main() -> Result<()> {
         let ds = dash_state.clone();
         set.spawn(async move {
             dashboard::ws::broadcast_loop(ds).await;
-            Ok(())
         });
     }
     {
         let ds = dash_state.clone();
-        set.spawn(async move { dashboard::serve(ds, DASHBOARD_PORT).await });
+        set.spawn(async move {
+            if let Err(e) = dashboard::serve(ds, DASHBOARD_PORT).await {
+                tracing::error!("Dashboard server error: {}", e);
+            }
+        });
     }
 
     while let Some(res) = set.join_next().await {
