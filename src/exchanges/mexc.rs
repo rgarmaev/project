@@ -179,11 +179,11 @@ impl MexcConnector {
             .map(|t| match side { Side::Buy => t.ask_price, Side::Sell => t.bid_price })
             .unwrap_or(dec!(150));
         let order_id = Uuid::new_v4();
-        // Simulate realistic fill: normal ±5 bps noise; 12% chance market moved 200 bps adverse
+        // Simulate realistic limit-order fill: ±1 bp noise + 12% chance of 5 bp adverse move
         let bits = order_id.as_u128();
-        let noise_bp = ((bits % 11) as i64 - 5) as i32;
+        let noise_bp = ((bits % 3) as i64 - 1) as i32;
         let adverse_bp: i32 = if bits % 100 < 12 {
-            match side { Side::Buy => 200, Side::Sell => -200 }
+            match side { Side::Buy => 5, Side::Sell => -5 }
         } else { 0 };
         let total_bp = noise_bp + adverse_bp;
         let price = base_price * (dec!(1) + Decimal::from(total_bp) / dec!(10000));
@@ -194,7 +194,7 @@ impl MexcConnector {
             side,
             filled_qty:  quantity,
             avg_price:   price,
-            fee_usdt:    quantity * price * dec!(0.002),
+            fee_usdt:    quantity * price * dec!(0.00010),
             timestamp:   Utc::now(),
         }
     }

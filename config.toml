@@ -3,13 +3,13 @@ symbol = "SOL"
 quote  = "USDT"
 
 # Minimum net spread (after fees) to trigger a trade: 0.001 = 0.1%
-min_spread_pct   = "0.001"
+min_spread_pct   = "0.00005"
 
 # USDT notional per leg
 trade_size_usdt  = "200"
 
-# Maximum allowed slippage vs quoted price
-max_slippage_pct = "0.0005"
+# Limit orders fill at quoted price → no slippage
+max_slippage_pct = "0.0000"
 
 # Set to false to execute real orders
 paper_trading = true
