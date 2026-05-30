@@ -1,16 +1,12 @@
 use anyhow::{bail, Result};
 use chrono::Utc;
-use futures_util::{SinkExt, StreamExt};
 use reqwest::Client;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::select;
-use tokio::time::{interval, sleep};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio::time::interval;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -20,28 +16,6 @@ use crate::{
     orderbook::SharedPriceState,
     types::{BookTicker, Exchange, MarketId, MarketType, OrderResult, Side},
 };
-
-// ── WebSocket shapes ─────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct MexcWsMsg {
-    c: Option<String>,
-    d: Option<MexcBookTicker>,
-}
-
-#[derive(Deserialize)]
-struct MexcBookTicker {
-    #[serde(rename = "b")]
-    bid: Option<String>,
-    #[serde(rename = "B")]
-    bid_qty: Option<String>,
-    #[serde(rename = "a")]
-    ask: Option<String>,
-    #[serde(rename = "A")]
-    ask_qty: Option<String>,
-}
-
-// ── Connector ────────────────────────────────────────────────────────────────
 
 pub struct MexcConnector {
     config: Arc<Config>,
@@ -53,78 +27,50 @@ impl MexcConnector {
         Self { config, http: Client::new() }
     }
 
-    async fn connect_once(&self, price_state: &SharedPriceState) -> Result<()> {
-        let url = "wss://wbs.mexc.com/ws";
-        let market_id = MarketId::new(Exchange::Mexc, MarketType::Spot);
-        let pair = self.config.pair();
-
-        info!("{} connecting → {}", market_id, url);
-        let (ws, _) = connect_async(url).await?;
-        let (mut write, mut read) = ws.split();
-
-        let sub = serde_json::json!({
-            "method": "SUBSCRIPTION",
-            "params": [format!("spot@public.bookTicker.v3.api@{}", pair)]
-        });
-        write.send(Message::Text(sub.to_string())).await?;
-
-        // MEXC requires a PING every 30 seconds
-        let mut ping_tick = interval(Duration::from_secs(30));
-        ping_tick.tick().await;
-
-        loop {
-            select! {
-                msg = read.next() => {
-                    let msg = match msg {
-                        Some(Ok(m))  => m,
-                        Some(Err(e)) => return Err(e.into()),
-                        None => break,
-                    };
-                    match msg {
-                        Message::Text(text) => {
-                            if text.contains("\"msg\":\"PONG\"") { continue; }
-                            let env: MexcWsMsg = match serde_json::from_str(&text) {
-                                Ok(e) => e,
-                                Err(_) => continue,
-                            };
-                            let Some(d) = env.d else { continue };
-                            let bid = d.bid.as_deref().and_then(|s| Decimal::from_str(s).ok()).unwrap_or(dec!(0));
-                            let ask = d.ask.as_deref().and_then(|s| Decimal::from_str(s).ok()).unwrap_or(dec!(0));
-                            if bid > dec!(0) && ask > dec!(0) {
-                                debug!("{} bid={} ask={}", market_id, bid, ask);
-                                price_state.update(BookTicker {
-                                    market: market_id,
-                                    bid_price: bid,
-                                    bid_qty:   d.bid_qty.as_deref().and_then(|s| Decimal::from_str(s).ok()).unwrap_or(dec!(0)),
-                                    ask_price: ask,
-                                    ask_qty:   d.ask_qty.as_deref().and_then(|s| Decimal::from_str(s).ok()).unwrap_or(dec!(0)),
-                                    updated_at: Utc::now(),
-                                });
-                            }
-                        }
-                        Message::Ping(d) => { write.send(Message::Pong(d)).await?; }
-                        Message::Close(_) => break,
-                        _ => {}
-                    }
-                }
-                _ = ping_tick.tick() => {
-                    write.send(Message::Text(r#"{"method":"PING"}"#.to_string())).await?;
-                }
-            }
-        }
-        Ok(())
-    }
-
+    /// REST polling: MEXC public WebSocket channels are blocked without API keys.
+    /// Poll bookTicker REST endpoint every 500ms — sufficient for paper trading.
     pub async fn run_feed(self: Arc<Self>, price_state: SharedPriceState) {
-        let mut delay = Duration::from_millis(1_000);
+        let market_id = MarketId::new(Exchange::Mexc, MarketType::Spot);
+        let url = format!(
+            "https://api.mexc.com/api/v3/ticker/bookTicker?symbol={}",
+            self.config.pair()
+        );
+        info!("MEXC:Spot polling → {}", url);
+
+        let mut tick = interval(Duration::from_millis(500));
         loop {
-            if let Err(e) = self.connect_once(&price_state).await {
-                warn!("MEXC:Spot feed error: {:#}", e);
-            } else {
-                warn!("MEXC:Spot feed closed");
+            tick.tick().await;
+            match self.http.get(&url).send().await {
+                Ok(resp) => match resp.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        let bid = data["bidPrice"].as_str()
+                            .and_then(|s| Decimal::from_str(s).ok())
+                            .unwrap_or(dec!(0));
+                        let ask = data["askPrice"].as_str()
+                            .and_then(|s| Decimal::from_str(s).ok())
+                            .unwrap_or(dec!(0));
+                        let bid_qty = data["bidQty"].as_str()
+                            .and_then(|s| Decimal::from_str(s).ok())
+                            .unwrap_or(dec!(0));
+                        let ask_qty = data["askQty"].as_str()
+                            .and_then(|s| Decimal::from_str(s).ok())
+                            .unwrap_or(dec!(0));
+                        if bid > dec!(0) && ask > dec!(0) {
+                            debug!("{} bid={} ask={}", market_id, bid, ask);
+                            price_state.update(BookTicker {
+                                market: market_id,
+                                bid_price: bid,
+                                bid_qty,
+                                ask_price: ask,
+                                ask_qty,
+                                updated_at: Utc::now(),
+                            });
+                        }
+                    }
+                    Err(e) => warn!("MEXC:Spot parse error: {}", e),
+                },
+                Err(e) => warn!("MEXC:Spot fetch error: {}", e),
             }
-            sleep(delay).await;
-            delay = (delay * 2).min(Duration::from_secs(30));
         }
     }
 
@@ -179,7 +125,6 @@ impl MexcConnector {
             .map(|t| match side { Side::Buy => t.ask_price, Side::Sell => t.bid_price })
             .unwrap_or(dec!(150));
         let order_id = Uuid::new_v4();
-        // Simulate realistic limit-order fill: ±1 bp noise + 12% chance of 5 bp adverse move
         let bits = order_id.as_u128();
         let noise_bp = ((bits % 3) as i64 - 1) as i32;
         let adverse_bp: i32 = if bits % 100 < 12 {
