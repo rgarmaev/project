@@ -33,12 +33,12 @@ cooldown_ms        = 500   # minimum ms between consecutive signals
 [binance]
 api_key    = ""   # override with BINANCE_API_KEY env var
 api_secret = ""
-testnet    = true
+testnet    = false   # use real prices for paper trading simulation
 
 [bybit]
 api_key    = ""   # override with BYBIT_API_KEY env var
 api_secret = ""
-testnet    = true
+testnet    = false   # testnet had fake prices (SOL Perp $242 vs Spot $83)
 
 [mexc]
 api_key    = ""   # override with MEXC_API_KEY env var
