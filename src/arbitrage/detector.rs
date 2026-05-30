@@ -126,9 +126,16 @@ impl ArbitrageDetector {
         let sell_mp = microprice(sell.bid_price, sell.bid_qty, sell.ask_price, sell.ask_qty)
             .unwrap_or_else(|| (sell.bid_price + sell.ask_price) / dec!(2));
 
-        // Microprice sanity check: if fair prices don't confirm the direction, skip.
-        // Prevents chasing noise where actual bid/ask looks profitable but fair value disagrees.
-        if sell_mp <= buy_mp { return None; }
+        // Microprice sanity check: log when fair value disagrees with bid/ask direction.
+        // Only hard-filter when the disagreement is significant (>0.5% adverse).
+        let mp_spread_pct = if buy_mp > dec!(0) { (sell_mp - buy_mp) / buy_mp } else { dec!(0) };
+        if mp_spread_pct < dec!(-0.005) {
+            debug!(
+                "Signal skipped: microprice disagrees — sell_mp={:.4} buy_mp={:.4} ({:.3}%)",
+                sell_mp, buy_mp, mp_spread_pct * dec!(100)
+            );
+            return None;
+        }
 
         // ── 2. Imbalance filter ───────────────────────────────────────────────
         // High positive imbalance on buy side → strong buying pressure →
