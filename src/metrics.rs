@@ -14,6 +14,7 @@ struct Inner {
     wins: usize,
     total_pnl: Decimal,
     total_fees: Decimal,
+    total_gross_pnl: Decimal,
     peak_pnl: Decimal,
     max_drawdown: Decimal,
     total_exec_ms: u64,
@@ -26,9 +27,12 @@ pub struct MetricsSnapshot {
     pub win_rate: f64,
     pub total_pnl: f64,
     pub total_fees: f64,
+    pub total_gross_pnl: f64,
     pub peak_pnl: f64,
     pub max_drawdown: f64,
     pub avg_exec_ms: u64,
+    /// fees / gross_pnl — portion of gross eaten by fees (0..1)
+    pub fee_ratio: f64,
 }
 
 fn to_f64(d: Decimal) -> f64 {
@@ -43,6 +47,7 @@ impl MetricsCollector {
                 wins: 0,
                 total_pnl: dec!(0),
                 total_fees: dec!(0),
+                total_gross_pnl: dec!(0),
                 peak_pnl: dec!(0),
                 max_drawdown: dec!(0),
                 total_exec_ms: 0,
@@ -58,6 +63,7 @@ impl MetricsCollector {
         }
         m.total_pnl += trade.net_pnl;
         m.total_fees += trade.fees;
+        m.total_gross_pnl += trade.gross_pnl;
         m.total_exec_ms += trade.exec_ms;
 
         if m.total_pnl > m.peak_pnl {
@@ -88,15 +94,20 @@ impl MetricsCollector {
             0.0
         };
         let avg_exec_ms = if m.trades > 0 { m.total_exec_ms / m.trades as u64 } else { 0 };
+        let gross = to_f64(m.total_gross_pnl);
+        let fees  = to_f64(m.total_fees);
+        let fee_ratio = if gross > 0.0 { fees / gross } else { 0.0 };
         MetricsSnapshot {
             trades: m.trades,
             wins: m.wins,
             win_rate,
             total_pnl: to_f64(m.total_pnl),
-            total_fees: to_f64(m.total_fees),
+            total_fees: fees,
+            total_gross_pnl: gross,
             peak_pnl: to_f64(m.peak_pnl),
             max_drawdown: to_f64(m.max_drawdown),
             avg_exec_ms,
+            fee_ratio,
         }
     }
 

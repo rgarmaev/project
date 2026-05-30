@@ -11,8 +11,9 @@ const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${wind
 
 const EMPTY_METRICS = {
   trades: 0, wins: 0, win_rate: 0,
-  total_pnl: 0, total_fees: 0, peak_pnl: 0,
-  max_drawdown: 0, avg_exec_ms: 0,
+  total_pnl: 0, total_fees: 0, total_gross_pnl: 0,
+  peak_pnl: 0, max_drawdown: 0, avg_exec_ms: 0,
+  fee_ratio: 0,
 }
 
 type Tab = 'dashboard' | 'settings'

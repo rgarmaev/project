@@ -4,9 +4,11 @@ export interface MetricsSnapshot {
   win_rate: number
   total_pnl: number
   total_fees: number
+  total_gross_pnl: number
   peak_pnl: number
   max_drawdown: number
   avg_exec_ms: number
+  fee_ratio: number   // fees / gross — portion eaten by fees (0..1)
 }
 
 export interface PriceEntry {

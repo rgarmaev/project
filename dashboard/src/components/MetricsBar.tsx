@@ -61,8 +61,19 @@ export function MetricsBar({ metrics, paperTrading, effectiveMinSpreadPct }: Pro
       <Card label="Win Rate" value={`${fmt(metrics.win_rate, 1)}%`} />
       <Card label="Max Drawdown" value={`${fmt(metrics.max_drawdown, 4)} USDT`} color={metrics.max_drawdown > 0 ? '#ff4444' : '#e0e0e0'} />
       <Card label="Trades" value={String(metrics.trades)} />
-      <Card label="Fees" value={`${fmt(metrics.total_fees, 4)} USDT`} color="#888" />
+      <Card label="Gross PnL" value={`+${fmt(metrics.total_gross_pnl, 4)} USDT`} color="#888" />
+      <Card label="Fees" value={`-${fmt(metrics.total_fees, 4)} USDT`} color="#666" />
       <Card label="Avg Exec" value={`${metrics.avg_exec_ms} ms`} />
+      <Card
+        label="Fee Ratio"
+        value={`${fmt(metrics.fee_ratio * 100, 1)}%`}
+        color={
+          metrics.fee_ratio > 0.9  ? '#ff4444' :   // bad: >90% of gross eaten
+          metrics.fee_ratio > 0.6  ? '#aaaa00' :   // marginal: 60-90%
+          metrics.fee_ratio > 0    ? '#00ff87' :   // good: <60%
+          '#444'
+        }
+      />
       <Card
         label="AS Min Spread"
         value={`${fmt(effectiveMinSpreadPct, 4)}%`}

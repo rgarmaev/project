@@ -126,11 +126,7 @@ impl MexcConnector {
             .unwrap_or(dec!(150));
         let order_id = Uuid::new_v4();
         let bits = order_id.as_u128();
-        let noise_bp = ((bits % 3) as i64 - 1) as i32;
-        let adverse_bp: i32 = if bits % 100 < 12 {
-            match side { Side::Buy => 5, Side::Sell => -5 }
-        } else { 0 };
-        let total_bp = noise_bp + adverse_bp;
+        let total_bp = ((bits % 3) as i64 - 1) as i32;
         let price = base_price * (dec!(1) + Decimal::from(total_bp) / dec!(10000));
         OrderResult {
             exchange:    Exchange::Mexc,
