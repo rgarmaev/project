@@ -6,6 +6,7 @@ import { PriceTable } from './components/PriceTable'
 import { TradesFeed } from './components/TradesFeed'
 import { StatusBar } from './components/StatusBar'
 import { SettingsPage } from './components/SettingsPage'
+import { ChartsRow } from './components/ChartsRow'
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
 
@@ -37,6 +38,7 @@ export default function App() {
   const metrics = snapshot?.metrics ?? EMPTY_METRICS
   const prices = snapshot?.prices ?? []
   const trades = snapshot?.recent_trades ?? []
+  const effectiveMinSpreadPct = snapshot?.effective_min_spread_pct ?? 0
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -59,9 +61,9 @@ export default function App() {
         <SettingsPage />
       ) : (
         <>
-          <MetricsBar metrics={metrics} paperTrading={snapshot?.metrics != null && true}
-            effectiveMinSpreadPct={snapshot?.effective_min_spread_pct ?? 0.1} />
+          <MetricsBar metrics={metrics} paperTrading={false} effectiveMinSpreadPct={effectiveMinSpreadPct} />
           <PnlChart recentTrades={trades} />
+          <ChartsRow prices={prices} trades={trades} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <PriceTable prices={prices} />
             <TradesFeed trades={trades} />
