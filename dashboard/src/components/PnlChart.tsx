@@ -46,7 +46,7 @@ export function PnlChart({ recentTrades }: Props) {
           Waiting for first trade...
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={370}>
           <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <XAxis dataKey="time" tick={{ fill: '#444', fontSize: 10 }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fill: '#444', fontSize: 10 }} tickLine={false} axisLine={false} width={55} />
