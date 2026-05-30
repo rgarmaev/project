@@ -12,15 +12,16 @@ interface CardProps {
   color?: string
 }
 
-function Card({ label, value, color }: CardProps) {
+function Card({ label, value, color, title }: CardProps & { title?: string }) {
   return (
-    <div style={{
+    <div title={title} style={{
       background: '#111',
       border: '1px solid #1f1f1f',
       borderRadius: 6,
       padding: '12px 16px',
       flex: 1,
       minWidth: 120,
+      cursor: title ? 'help' : 'default',
     }}>
       <div style={{ color: '#666', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
         {label}
@@ -78,6 +79,7 @@ export function MetricsBar({ metrics, paperTrading, effectiveMinSpreadPct }: Pro
         label="AS Min Spread"
         value={`${fmt(effectiveMinSpreadPct, 4)}%`}
         color={effectiveMinSpreadPct > 0.15 ? '#ff4444' : effectiveMinSpreadPct > 0.11 ? '#aaaa00' : '#00ff87'}
+        title={`AS-2008: base_min + γ·σ²·τ = ${fmt(effectiveMinSpreadPct, 6)}%\nОбновляется с config.toml при перезапуске`}
       />
     </div>
   )

@@ -39,9 +39,10 @@ function imbalanceBar(imb: number) {
 }
 
 function sigmaColor(sigma: number) {
-  if (sigma > 0.08) return '#ff4444'   // high vol
-  if (sigma > 0.04) return '#aaaa00'   // medium vol
-  return '#444'                         // low / not warmed up
+  if (sigma > 0.05) return '#ff4444'   // high vol  >5bp/tick
+  if (sigma > 0.01) return '#aaaa00'   // medium    1-5bp/tick
+  if (sigma > 0)    return '#00ff87'   // low       <1bp/tick (warmed up)
+  return '#333'                         // no data
 }
 
 function PriceRow({ entry }: { entry: PriceEntry }) {
@@ -73,8 +74,9 @@ function PriceRow({ entry }: { entry: PriceEntry }) {
           {entry.imbalance > 0 ? '+' : ''}{(entry.imbalance * 100).toFixed(0)}%
         </span>
       </td>
-      <td style={{ padding: '6px 8px', color: sigmaColor(entry.sigma_pct), fontSize: 11 }}>
-        {entry.sigma_pct > 0 ? `${entry.sigma_pct.toFixed(4)}%` : '—'}
+      <td style={{ padding: '6px 8px', color: sigmaColor(entry.sigma_pct), fontSize: 11 }}
+          title={entry.sigma_pct > 0 ? `EWMA σ = ${entry.sigma_pct.toFixed(5)}%/tick` : 'Warming up...'}>
+        {entry.sigma_pct > 0 ? `${(entry.sigma_pct * 100).toFixed(2)}bp` : '…'}
         {entry.stale ? ' ⚠' : ''}
       </td>
     </tr>

@@ -36,6 +36,8 @@ pub struct ArbitrageDetector {
     signal_tx: mpsc::Sender<ArbitrageSignal>,
     // Per-market EWMA volatility (Avellaneda-Stoikov 2008 / RiskMetrics 1996)
     vol_map: Mutex<HashMap<MarketId, EwmaVolatility>>,
+    // Last known mid per market — EWMA updates only on actual price changes
+    last_mids: dashmap::DashMap<MarketId, Decimal>,
 }
 
 impl ArbitrageDetector {
@@ -49,6 +51,7 @@ impl ArbitrageDetector {
             price_state,
             signal_tx,
             vol_map: Mutex::new(HashMap::new()),
+            last_mids: dashmap::DashMap::new(),
         }
     }
 
@@ -74,14 +77,22 @@ impl ArbitrageDetector {
         }
 
         // ── Update EWMA volatilities and snapshot current variances ──────────
+        // Only update when mid price actually changes — otherwise r=0 collapses variance.
         let variances: HashMap<MarketId, f64> = {
             let mut vol = self.vol_map.lock();
             for t in &tickers {
                 let mid = (t.bid_price + t.ask_price) / dec!(2);
-                vol.entry(t.market).or_insert_with(EwmaVolatility::new).update(mid);
+                let changed = self.last_mids.get(&t.market)
+                    .map(|prev| *prev != mid)
+                    .unwrap_or(true);
+                if changed {
+                    self.last_mids.insert(t.market, mid);
+                    vol.entry(t.market).or_insert_with(EwmaVolatility::new).update(mid);
+                }
             }
             // Expose sigma to PriceState so dashboard can read it
             for (market, ewma) in vol.iter() {
+                debug!("{} EWMA n={} var={:.2e}", market, ewma.n_updates, ewma.variance);
                 if let Some(sigma) = ewma.sigma() {
                     self.price_state.set_sigma(*market, sigma);
                 }

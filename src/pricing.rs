@@ -55,7 +55,7 @@ pub struct EwmaVolatility {
     lambda: f64,
     pub variance: f64,
     last_mid: Option<f64>,
-    n_updates: u64,
+    pub n_updates: u64,
 }
 
 impl EwmaVolatility {
@@ -75,12 +75,12 @@ impl EwmaVolatility {
         self.last_mid = Some(m);
     }
 
-    /// σ² (fractional, per tick). None until 50+ updates.
+    /// σ² (fractional, per price change). None until 2+ real price changes.
     pub fn variance(&self) -> Option<f64> {
-        if self.n_updates < 50 { None } else { Some(self.variance) }
+        if self.n_updates < 2 { None } else { Some(self.variance) }
     }
 
-    /// σ (std dev of fractional returns per tick). None until 50+ updates.
+    /// σ (std dev of fractional returns per price change). None until 2+ changes.
     pub fn sigma(&self) -> Option<f64> {
         self.variance().map(|v| v.sqrt())
     }

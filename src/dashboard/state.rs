@@ -1,4 +1,5 @@
 use crate::{
+    config::Config,
     metrics::MetricsCollector,
     orderbook::PriceState,
     pricing::imbalance,
@@ -71,16 +72,22 @@ pub struct DashboardState {
     pub price_state: Arc<PriceState>,
     pub metrics: Arc<MetricsCollector>,
     pub broadcast_tx: broadcast::Sender<String>,
+    pub config: Arc<Config>,
 }
 
 impl DashboardState {
-    pub fn new(price_state: Arc<PriceState>, metrics: Arc<MetricsCollector>) -> Arc<Self> {
+    pub fn new(
+        price_state: Arc<PriceState>,
+        metrics: Arc<MetricsCollector>,
+        config: Arc<Config>,
+    ) -> Arc<Self> {
         let (broadcast_tx, _) = broadcast::channel(64);
         Arc::new(Self {
             trades: Mutex::new(VecDeque::with_capacity(MAX_TRADES)),
             price_state,
             metrics,
             broadcast_tx,
+            config,
         })
     }
 
@@ -139,12 +146,13 @@ impl DashboardState {
         }).collect();
 
         // AS-2008 effective minimum spread (in %) = base_min + γ·σ²_avg·τ
-        // Using default params if not exposed from config (dashboard reads live values)
+        // Read all parameters from live config — updates immediately when settings change
         let avg_sigma = if sigma_count > 0 { total_sigma / sigma_count as f64 } else { 0.0 };
         let avg_var = avg_sigma * avg_sigma;
-        let vol_penalty = 50.0 * avg_var * 1.0; // γ=50, τ=1 defaults
-        let base_min_pct = 0.1; // 0.1% default, could read from config
-        let effective_min_spread_pct = base_min_pct + vol_penalty * 100.0;
+        let gamma = self.config.trading.gamma;
+        let tau   = self.config.trading.tau;
+        let base_min_pct = d(self.config.trading.min_spread_pct) * 100.0;
+        let effective_min_spread_pct = base_min_pct + gamma * avg_var * tau * 100.0;
 
         WsSnapshot {
             metrics: self.metrics.snapshot(),

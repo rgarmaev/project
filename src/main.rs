@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
 
-    let dash_state = DashboardState::new(price_state.clone(), metrics.clone());
+    let dash_state = DashboardState::new(price_state.clone(), metrics.clone(), config.clone());
 
     let detector = Arc::new(ArbitrageDetector::new(
         config.clone(),
