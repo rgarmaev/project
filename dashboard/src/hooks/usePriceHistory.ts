@@ -21,10 +21,11 @@ export function usePriceHistory(
 
     for (const p of prices) {
       const key = `${p.exchange}:${p.market}`
-      const arr = buf.get(key) ?? []
-      arr.push({ time: now, bid: p.bid, ask: p.ask })
-      if (arr.length > maxPoints) arr.shift()
-      buf.set(key, arr)
+      const prev = buf.get(key) ?? []
+      const next = prev.length >= maxPoints
+        ? [...prev.slice(1), { time: now, bid: p.bid, ask: p.ask }]
+        : [...prev, { time: now, bid: p.bid, ask: p.ask }]
+      buf.set(key, next)
     }
 
     setSnap(new Map(buf))

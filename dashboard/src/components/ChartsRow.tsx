@@ -93,7 +93,7 @@ function ExchangeChart({
 }) {
   const spot = history.get(spotKey) ?? []
   const perp = perpKey ? (history.get(perpKey) ?? []) : []
-  const len = perpKey ? Math.min(spot.length, perp.length) : spot.length
+  const len = spot.length
 
   const data = Array.from({ length: len }, (_, i) => ({
     time: spot[i].time,
