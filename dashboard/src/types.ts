@@ -14,7 +14,10 @@ export interface PriceEntry {
   market: string
   bid: number
   ask: number
+  microprice: number    // Stoikov 2018: volume-weighted fair price
   spread_pct: number
+  imbalance: number     // (bid_qty - ask_qty) / (bid_qty + ask_qty) ∈ [-1, 1]
+  sigma_pct: number     // EWMA σ in %, e.g. 0.05 means 0.05%/tick
   stale: boolean
 }
 
@@ -34,4 +37,5 @@ export interface WsSnapshot {
   metrics: MetricsSnapshot
   prices: PriceEntry[]
   recent_trades: TradeRecord[]
+  effective_min_spread_pct: number  // AS-2008 vol-adjusted threshold
 }

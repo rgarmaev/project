@@ -19,7 +19,29 @@ pub struct TradingConfig {
     pub trade_size_usdt: Decimal,
     pub max_slippage_pct: Decimal,
     pub paper_trading: bool,
+
+    // ── Avellaneda-Stoikov 2008 ─────────────────────────────────────────────
+    // gamma: risk aversion calibrated for fractional prices (not fp units).
+    //   50 → ~5 bps penalty at normal vol, ~125 bps at high vol.
+    #[serde(default = "default_gamma")]
+    pub gamma: f64,
+    // k: fill-intensity parameter  lambda(d) = A·exp(−k·d)
+    #[serde(default = "default_k")]
+    pub k: f64,
+    // tau: rolling time-horizon constant (dimensionless)
+    #[serde(default = "default_tau")]
+    pub tau: f64,
+    // Imbalance magnitude above which we skip the signal.
+    //   buy_imbalance > threshold → price rising, we overpay.
+    //   sell_imbalance < -threshold → price falling, we undersell.
+    #[serde(default = "default_imbalance_threshold")]
+    pub imbalance_threshold: f64,
 }
+
+fn default_gamma() -> f64 { 50.0 }
+fn default_k() -> f64 { 1.5 }
+fn default_tau() -> f64 { 1.0 }
+fn default_imbalance_threshold() -> f64 { 0.8 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RiskConfig {

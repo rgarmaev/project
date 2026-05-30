@@ -1,4 +1,10 @@
-use crate::{metrics::MetricsCollector, orderbook::PriceState, types::CompletedTrade};
+use crate::{
+    metrics::MetricsCollector,
+    orderbook::PriceState,
+    pricing::imbalance,
+    pricing::microprice,
+    types::CompletedTrade,
+};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::{collections::VecDeque, sync::Arc};
@@ -45,7 +51,10 @@ pub struct PriceEntry {
     pub market: String,
     pub bid: f64,
     pub ask: f64,
+    pub microprice: f64,     // Stoikov 2018: volume-weighted fair price
     pub spread_pct: f64,
+    pub imbalance: f64,      // (bid_qty - ask_qty) / (bid_qty + ask_qty) ∈ [-1, 1]
+    pub sigma_pct: f64,      // EWMA σ expressed as %, e.g. 0.05 = 0.05%
     pub stale: bool,
 }
 
@@ -54,6 +63,7 @@ pub struct WsSnapshot {
     pub metrics: crate::metrics::MetricsSnapshot,
     pub prices: Vec<PriceEntry>,
     pub recent_trades: Vec<TradeRecord>,
+    pub effective_min_spread_pct: f64,  // AS-2008 vol-adjusted threshold (in %)
 }
 
 pub struct DashboardState {
@@ -91,25 +101,56 @@ impl DashboardState {
         fn d(v: rust_decimal::Decimal) -> f64 {
             v.to_string().parse().unwrap_or(0.0)
         }
-        let prices = self.price_state.all().into_iter().map(|t| {
+
+        let tickers = self.price_state.all();
+        let mut total_sigma: f64 = 0.0;
+        let mut sigma_count: usize = 0;
+
+        let prices: Vec<PriceEntry> = tickers.into_iter().map(|t| {
             let stale = (Utc::now() - t.updated_at).num_seconds() > 5;
             let bid = d(t.bid_price);
             let ask = d(t.ask_price);
             let spread_pct = if bid > 0.0 { (ask - bid) / bid * 100.0 } else { 0.0 };
+
+            let mp = microprice(t.bid_price, t.bid_qty, t.ask_price, t.ask_qty)
+                .map(|v| d(v))
+                .unwrap_or((bid + ask) / 2.0);
+
+            let imb = imbalance(t.bid_qty, t.ask_qty);
+
+            let sigma = self.price_state.get_sigma(&t.market).unwrap_or(0.0);
+            let sigma_pct = sigma * 100.0;
+            if sigma > 0.0 {
+                total_sigma += sigma;
+                sigma_count += 1;
+            }
+
             PriceEntry {
                 exchange: t.market.exchange.to_string(),
                 market: t.market.market_type.to_string(),
                 bid,
                 ask,
+                microprice: mp,
                 spread_pct,
+                imbalance: imb,
+                sigma_pct,
                 stale,
             }
         }).collect();
+
+        // AS-2008 effective minimum spread (in %) = base_min + γ·σ²_avg·τ
+        // Using default params if not exposed from config (dashboard reads live values)
+        let avg_sigma = if sigma_count > 0 { total_sigma / sigma_count as f64 } else { 0.0 };
+        let avg_var = avg_sigma * avg_sigma;
+        let vol_penalty = 50.0 * avg_var * 1.0; // γ=50, τ=1 defaults
+        let base_min_pct = 0.1; // 0.1% default, could read from config
+        let effective_min_spread_pct = base_min_pct + vol_penalty * 100.0;
 
         WsSnapshot {
             metrics: self.metrics.snapshot(),
             prices,
             recent_trades: self.recent_trades(50),
+            effective_min_spread_pct,
         }
     }
 }

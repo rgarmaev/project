@@ -4,6 +4,7 @@ mod dashboard;
 mod exchanges;
 mod metrics;
 mod orderbook;
+mod pricing;
 mod risk;
 mod types;
 

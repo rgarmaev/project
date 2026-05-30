@@ -14,6 +14,16 @@ max_slippage_pct = "0.0005"
 # Set to false to execute real orders
 paper_trading = true
 
+# ── Avellaneda-Stoikov 2008 ──────────────────────────────────────────────────
+# Risk aversion (calibrated for fractional prices, not fixed-point)
+gamma = 50.0
+# Fill-intensity parameter: lambda(d) = A * exp(-k*d)
+k     = 1.5
+# Rolling time-horizon constant
+tau   = 1.0
+# Reject signal if order-book imbalance exceeds this magnitude
+imbalance_threshold = 0.8
+
 [risk]
 max_position_usdt  = "2000"
 max_daily_loss_usdt = "100"

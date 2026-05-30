@@ -32,7 +32,7 @@ export default function App() {
         </span>
       </div>
 
-      <MetricsBar metrics={metrics} paperTrading={false} />
+      <MetricsBar metrics={metrics} paperTrading={false} effectiveMinSpreadPct={snapshot?.effective_min_spread_pct ?? 0.1} />
 
       <PnlChart recentTrades={trades} />
 

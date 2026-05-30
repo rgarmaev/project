@@ -3,6 +3,7 @@ import { MetricsSnapshot } from '../types'
 interface Props {
   metrics: MetricsSnapshot
   paperTrading: boolean
+  effectiveMinSpreadPct: number
 }
 
 interface CardProps {
@@ -39,7 +40,7 @@ function fmt(v: number, decimals = 2) {
   return v.toFixed(decimals)
 }
 
-export function MetricsBar({ metrics, paperTrading }: Props) {
+export function MetricsBar({ metrics, paperTrading, effectiveMinSpreadPct }: Props) {
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
       {paperTrading && (
@@ -62,6 +63,11 @@ export function MetricsBar({ metrics, paperTrading }: Props) {
       <Card label="Trades" value={String(metrics.trades)} />
       <Card label="Fees" value={`${fmt(metrics.total_fees, 4)} USDT`} color="#888" />
       <Card label="Avg Exec" value={`${metrics.avg_exec_ms} ms`} />
+      <Card
+        label="AS Min Spread"
+        value={`${fmt(effectiveMinSpreadPct, 4)}%`}
+        color={effectiveMinSpreadPct > 0.15 ? '#ff4444' : effectiveMinSpreadPct > 0.11 ? '#aaaa00' : '#00ff87'}
+      />
     </div>
   )
 }
