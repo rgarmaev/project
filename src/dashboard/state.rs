@@ -25,6 +25,8 @@ pub struct TradeRecord {
     pub net_pnl: f64,
     pub exec_ms: u64,
     pub time: DateTime<Utc>,
+    pub buy_ask: f64,
+    pub sell_bid: f64,
 }
 
 impl From<&CompletedTrade> for TradeRecord {
@@ -42,6 +44,8 @@ impl From<&CompletedTrade> for TradeRecord {
             net_pnl: d(t.net_pnl),
             exec_ms: t.exec_ms,
             time: t.completed_at,
+            buy_ask: d(t.signal.buy_ask),
+            sell_bid: d(t.signal.sell_bid),
         }
     }
 }
@@ -166,10 +170,11 @@ impl DashboardState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{metrics::MetricsCollector, orderbook::PriceState};
+    use crate::{config::Config, metrics::MetricsCollector, orderbook::PriceState};
 
     fn make_state() -> Arc<DashboardState> {
-        DashboardState::new(Arc::new(PriceState::new()), Arc::new(MetricsCollector::new()))
+        let config = Arc::new(Config::load().unwrap());
+        DashboardState::new(Arc::new(PriceState::new()), Arc::new(MetricsCollector::new()), config)
     }
 
     #[test]
@@ -191,6 +196,8 @@ mod tests {
                     net_pnl: 0.9,
                     exec_ms: i,
                     time: Utc::now(),
+                    buy_ask: 100.0,
+                    sell_bid: 101.0,
                 });
             }
         }
@@ -213,6 +220,8 @@ mod tests {
                     net_pnl: 0.0,
                     exec_ms: i,
                     time: Utc::now(),
+                    buy_ask: 0.0,
+                    sell_bid: 0.0,
                 });
             }
         }

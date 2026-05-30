@@ -18,6 +18,10 @@ struct Inner {
     peak_pnl: Decimal,
     max_drawdown: Decimal,
     total_exec_ms: u64,
+    // Signal pipeline counters (order-to-trade ratio)
+    signals_sent: u64,       // passed detector filters, queued to executor
+    rejected_cooldown: u64,  // blocked by risk cooldown
+    rejected_risk: u64,      // blocked by risk limits (position/daily loss/max open)
 }
 
 #[derive(Serialize, Clone)]
@@ -51,6 +55,9 @@ impl MetricsCollector {
                 peak_pnl: dec!(0),
                 max_drawdown: dec!(0),
                 total_exec_ms: 0,
+                signals_sent: 0,
+                rejected_cooldown: 0,
+                rejected_risk: 0,
             }),
         }
     }
