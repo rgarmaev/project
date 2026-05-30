@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer,
+  ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { PriceEntry, TradeRecord } from '../types'
+import { PriceEntry } from '../types'
 import { usePriceHistory, PricePoint } from '../hooks/usePriceHistory'
 
 interface Props {
   prices: PriceEntry[]
-  trades: TradeRecord[]
 }
 
 const PANEL: React.CSSProperties = {
@@ -39,41 +37,57 @@ const EMPTY = (
   </div>
 )
 
-// ── Chart 1: Buy / Sell prices from completed trades ────────────────────────
+// ── Chart 1: Live spread % between market pairs ─────────────────────────────
 
-function BuySellChart({ trades }: { trades: TradeRecord[] }) {
-  const [history, setHistory] = useState<TradeRecord[]>([])
+const ROUTES = [
+  { label: 'Bin.S→Byb.S', buyKey: 'Binance:Spot', sellKey: 'Bybit:Spot',   color: '#00ff87' },
+  { label: 'Byb.S→Bin.S', buyKey: 'Bybit:Spot',   sellKey: 'Binance:Spot', color: '#4488ff' },
+  { label: 'Bin.P→Byb.P', buyKey: 'Binance:Perp', sellKey: 'Bybit:Perp',   color: '#ffaa00' },
+  { label: 'Bin.S→MEX.S', buyKey: 'Binance:Spot', sellKey: 'MEXC:Spot',    color: '#ff44aa' },
+  { label: 'Byb.S→MEX.S', buyKey: 'Bybit:Spot',   sellKey: 'MEXC:Spot',    color: '#aa44ff' },
+]
 
-  useEffect(() => {
-    fetch('/api/trades?limit=500')
-      .then(r => r.json())
-      .then((data: TradeRecord[]) => setHistory(data))
-      .catch(() => {})
-  }, [])
+function SpreadChart({ history }: { history: Map<string, PricePoint[]> }) {
+  const allKeys = [...new Set(ROUTES.flatMap(r => [r.buyKey, r.sellKey]))]
+  const minLen = Math.min(...allKeys.map(k => history.get(k)?.length ?? 0))
 
-  const all = [...history, ...trades.filter(t => !history.find(h => h.id === t.id))]
-  const data = [...all]
-    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    .map(t => ({
-      time: new Date(t.time).toLocaleTimeString(),
-      buy: Math.round(t.buy_ask * 1000) / 1000,
-      sell: Math.round(t.sell_bid * 1000) / 1000,
-    }))
+  if (minLen === 0) {
+    return (
+      <div style={PANEL}>
+        <div style={LABEL}>Spread · All Routes (%)</div>
+        {EMPTY}
+      </div>
+    )
+  }
+
+  const data = Array.from({ length: minLen }, (_, i) => {
+    const point: Record<string, number | string> = { time: history.get(allKeys[0])![i].time }
+    for (const r of ROUTES) {
+      const buy  = history.get(r.buyKey)![i]
+      const sell = history.get(r.sellKey)![i]
+      if (buy && sell && buy.ask > 0) {
+        point[r.label] = Math.round((sell.bid - buy.ask) / buy.ask * 1_000_000) / 10_000
+      }
+    }
+    return point
+  })
 
   return (
     <div style={PANEL}>
-      <div style={LABEL}>Buy / Sell Prices · All Routes</div>
-      {data.length === 0 ? EMPTY : (
-        <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-            <XAxis dataKey="time" tick={AXIS_TICK} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-            <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={65} domain={['auto', 'auto']} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <Line type="monotone" dataKey="buy" stroke="#ff4444" strokeWidth={1.5} dot={{ r: 2, fill: '#ff4444' }} name="Buy ask" />
-            <Line type="monotone" dataKey="sell" stroke="#00ff87" strokeWidth={1.5} dot={{ r: 2, fill: '#00ff87' }} name="Sell bid" />
-          </LineChart>
-        </ResponsiveContainer>
-      )}
+      <div style={LABEL}>Spread · All Routes (%)</div>
+      <ResponsiveContainer width="100%" height={150}>
+        <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <XAxis dataKey="time" tick={AXIS_TICK} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={65} domain={['auto', 'auto']}
+                 tickFormatter={(v: number) => `${v.toFixed(2)}%`} />
+          <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => `${v.toFixed(4)}%`} />
+          <ReferenceLine y={0} stroke="#333" strokeDasharray="3 3" />
+          {ROUTES.map(r => (
+            <Line key={r.label} type="monotone" dataKey={r.label} stroke={r.color}
+                  strokeWidth={1} dot={false} name={r.label} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   )
 }
@@ -128,12 +142,12 @@ function ExchangeChart({
 
 // ── Container ───────────────────────────────────────────────────────────────
 
-export function ChartsRow({ prices, trades }: Props) {
+export function ChartsRow({ prices }: Props) {
   const history = usePriceHistory(prices)
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      <BuySellChart trades={trades} />
+      <SpreadChart history={history} />
       <ExchangeChart title="Binance · Bid / Ask" history={history} spotKey="Binance:Spot" perpKey="Binance:Perp" />
       <ExchangeChart title="Bybit · Bid / Ask"   history={history} spotKey="Bybit:Spot"   perpKey="Bybit:Perp" />
       <ExchangeChart title="MEXC · Bid / Ask"    history={history} spotKey="MEXC:Spot" />
