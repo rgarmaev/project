@@ -33,6 +33,8 @@ export interface TradeRecord {
   net_pnl: number
   exec_ms: number
   time: string
+  buy_ask: number
+  sell_bid: number
 }
 
 export interface WsSnapshot {
