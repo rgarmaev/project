@@ -3,10 +3,10 @@ symbol = "SOL"
 quote  = "USDT"
 
 # Minimum net spread (after fees) to trigger a trade: 0.001 = 0.1%
-min_spread_pct   = "0.0002"
+min_spread_pct   = "0.0001"
 
 # USDT notional per leg
-trade_size_usdt  = "200"
+trade_size_usdt  = "100"
 
 # Limit orders fill at quoted price → no slippage
 max_slippage_pct = "0.0000"
@@ -33,12 +33,12 @@ cooldown_ms        = 500   # minimum ms between consecutive signals
 [binance]
 api_key    = ""   # override with BINANCE_API_KEY env var
 api_secret = ""
-testnet    = false   # use real prices for paper trading simulation
+testnet    = false
 
 [bybit]
 api_key    = ""   # override with BYBIT_API_KEY env var
 api_secret = ""
-testnet    = false   # testnet had fake prices (SOL Perp $242 vs Spot $83)
+testnet    = false
 
 [mexc]
 api_key    = ""   # override with MEXC_API_KEY env var
