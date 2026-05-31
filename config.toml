@@ -2,8 +2,8 @@
 symbol = "SOL"
 quote  = "USDT"
 
-# Minimum net spread (after fees) to trigger a trade: 0.001 = 0.1%
-min_spread_pct   = "0.0001"
+# Minimum net spread (after fees) to trigger a trade: 0.0025 = 0.25%
+min_spread_pct   = "0.0025"
 
 # USDT notional per leg
 trade_size_usdt  = "100"

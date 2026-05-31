@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Deserialize)]
 pub struct TradesQuery {
@@ -21,4 +22,15 @@ pub async fn trades_handler(
     Query(q): Query<TradesQuery>,
 ) -> Json<Vec<TradeRecord>> {
     Json(state.recent_trades(q.limit))
+}
+
+pub async fn restart_handler() -> Json<serde_json::Value> {
+    tokio::spawn(async {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let exe = std::env::current_exe().unwrap();
+        let dir = std::env::current_dir().unwrap();
+        std::process::Command::new(exe).current_dir(dir).spawn().unwrap();
+        std::process::exit(0);
+    });
+    Json(serde_json::json!({ "message": "Перезапуск..." }))
 }

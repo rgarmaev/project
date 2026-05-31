@@ -15,6 +15,7 @@ pub async fn serve(state: Arc<DashboardState>, port: u16) -> Result<()> {
         .route("/ws", get(ws::ws_handler))
         .route("/api/trades", get(routes::trades_handler))
         .route("/api/config", get(config_api::get_config).post(config_api::post_config))
+        .route("/api/restart", axum::routing::post(routes::restart_handler))
         .fallback_service(ServeDir::new("dashboard/dist"))
         .with_state(state)
         .layer(CorsLayer::permissive());

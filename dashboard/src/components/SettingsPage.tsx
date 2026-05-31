@@ -147,6 +147,16 @@ export function SettingsPage() {
     }
   }
 
+  async function restart() {
+    setStatus('Перезапуск...')
+    try {
+      await fetch('/api/restart', { method: 'POST' })
+    } catch (_) {}
+    setTimeout(() => {
+      window.location.reload()
+    }, 3000)
+  }
+
   if (loading) return (
     <div style={{ padding: 40, color: '#444', textAlign: 'center' }}>Загрузка...</div>
   )
@@ -182,14 +192,23 @@ export function SettingsPage() {
           onChange={v => setConfig(c => ({ ...c, [id]: v }))} />
       ))}
 
-      {/* Save button */}
-      <button onClick={save} style={{
-        width: '100%', padding: '12px 0', background: '#00ff87', border: 'none',
-        borderRadius: 6, color: '#000', fontWeight: 600, fontSize: 13,
-        fontFamily: 'inherit', cursor: 'pointer', marginTop: 4,
-      }}>
-        Сохранить
-      </button>
+      {/* Save + Restart buttons */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginTop: 4 }}>
+        <button onClick={save} style={{
+          padding: '12px 0', background: '#00ff87', border: 'none',
+          borderRadius: 6, color: '#000', fontWeight: 600, fontSize: 13,
+          fontFamily: 'inherit', cursor: 'pointer',
+        }}>
+          Сохранить
+        </button>
+        <button onClick={restart} style={{
+          padding: '12px 20px', background: 'none', border: '1px solid #333',
+          borderRadius: 6, color: '#888', fontWeight: 600, fontSize: 13,
+          fontFamily: 'inherit', cursor: 'pointer',
+        }}>
+          ↺ Перезапустить
+        </button>
+      </div>
 
       {status && (
         <div style={{
