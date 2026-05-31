@@ -8,6 +8,7 @@ import { TradesFeed } from './components/TradesFeed'
 import { StatusBar } from './components/StatusBar'
 import { SettingsPage } from './components/SettingsPage'
 import { ChartsRow } from './components/ChartsRow'
+import { MarketScanner } from './components/MarketScanner'
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
 
@@ -109,6 +110,7 @@ export default function App() {
               </button>
             </div>
           )}
+          <MarketScanner />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
             <PnlChart recentTrades={trades} />
             <ChartsRow prices={prices} />
