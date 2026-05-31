@@ -42,4 +42,5 @@ export interface WsSnapshot {
   prices: PriceEntry[]
   recent_trades: TradeRecord[]
   effective_min_spread_pct: number  // AS-2008 vol-adjusted threshold
+  symbol: string
 }
