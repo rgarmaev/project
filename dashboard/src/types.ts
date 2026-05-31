@@ -54,3 +54,8 @@ export interface MarketRow {
   spread_ab: number
   spread_ba: number
 }
+
+export interface MarketSnapshot {
+  spot: MarketRow[]
+  perp: MarketRow[]
+}
