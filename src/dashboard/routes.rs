@@ -1,4 +1,5 @@
 use crate::dashboard::state::{DashboardState, TradeRecord};
+use crate::market_scanner::MarketRow;
 use axum::{
     extract::{Query, State},
     Json,
@@ -33,4 +34,10 @@ pub async fn restart_handler() -> Json<serde_json::Value> {
         std::process::exit(0);
     });
     Json(serde_json::json!({ "message": "Перезапуск..." }))
+}
+
+pub async fn market_handler(
+    State(state): State<Arc<DashboardState>>,
+) -> Json<Vec<MarketRow>> {
+    Json(state.market_snapshot())
 }

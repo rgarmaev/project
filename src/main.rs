@@ -7,6 +7,7 @@ mod orderbook;
 mod pricing;
 mod risk;
 mod types;
+mod market_scanner;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -18,6 +19,7 @@ use tracing_subscriber::EnvFilter;
 use arbitrage::{detector::ArbitrageDetector, executor::OrderExecutor};
 use dashboard::state::DashboardState;
 use exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector};
+use market_scanner::MarketScanner;
 use metrics::MetricsCollector;
 use orderbook::PriceState;
 use risk::RiskManager;
@@ -50,8 +52,9 @@ async fn main() -> Result<()> {
     let mexc    = Arc::new(MexcConnector::new(config.clone()));
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
+    let scanner = MarketScanner::new();
 
-    let dash_state = DashboardState::new(price_state.clone(), metrics.clone(), config.clone());
+    let dash_state = DashboardState::new(price_state.clone(), metrics.clone(), config.clone(), scanner.clone());
 
     let detector = Arc::new(ArbitrageDetector::new(
         config.clone(),
@@ -105,6 +108,10 @@ async fn main() -> Result<()> {
     }
 
     // ── Dashboard ────────────────────────────────────────────────────────────
+    {
+        let s = scanner.clone();
+        set.spawn(async move { s.run().await });
+    }
     {
         let ds = dash_state.clone();
         set.spawn(async move {

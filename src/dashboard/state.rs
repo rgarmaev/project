@@ -1,5 +1,6 @@
 use crate::{
     config::Config,
+    market_scanner::{MarketRow, MarketScanner},
     metrics::MetricsCollector,
     orderbook::PriceState,
     pricing::imbalance,
@@ -78,6 +79,7 @@ pub struct DashboardState {
     pub metrics: Arc<MetricsCollector>,
     pub broadcast_tx: broadcast::Sender<String>,
     pub config: Arc<Config>,
+    pub scanner: Arc<MarketScanner>,
 }
 
 impl DashboardState {
@@ -85,6 +87,7 @@ impl DashboardState {
         price_state: Arc<PriceState>,
         metrics: Arc<MetricsCollector>,
         config: Arc<Config>,
+        scanner: Arc<MarketScanner>,
     ) -> Arc<Self> {
         let (broadcast_tx, _) = broadcast::channel(64);
         Arc::new(Self {
@@ -93,7 +96,12 @@ impl DashboardState {
             metrics,
             broadcast_tx,
             config,
+            scanner,
         })
+    }
+
+    pub fn market_snapshot(&self) -> Vec<MarketRow> {
+        self.scanner.snapshot()
     }
 
     pub fn push_trade(&self, trade: &CompletedTrade) {
@@ -176,7 +184,8 @@ mod tests {
 
     fn make_state() -> Arc<DashboardState> {
         let config = Arc::new(Config::load().unwrap());
-        DashboardState::new(Arc::new(PriceState::new()), Arc::new(MetricsCollector::new()), config)
+        let scanner = crate::market_scanner::MarketScanner::new();
+        DashboardState::new(Arc::new(PriceState::new()), Arc::new(MetricsCollector::new()), config, scanner)
     }
 
     #[test]
