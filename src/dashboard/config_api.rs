@@ -15,6 +15,7 @@ pub struct ConfigPayload {
     pub paper_trading: bool,
     pub trade_size_usdt: f64,
     pub min_spread_pct: f64,
+    pub symbol: String,
     pub binance: ExchangeSettings,
     pub bybit: ExchangeSettings,
     pub mexc: ExchangeSettings,
@@ -35,12 +36,13 @@ pub async fn get_config(
     let mexc_secret    = env_vars.get("MEXC_API_SECRET").cloned().unwrap_or_default();
 
     // Read config.toml for trading params
-    let (paper, size, spread, bin_testnet, bybit_testnet) = read_config_toml();
+    let (paper, size, spread, bin_testnet, bybit_testnet, symbol) = read_config_toml();
 
     Json(ConfigPayload {
         paper_trading: paper,
         trade_size_usdt: size,
         min_spread_pct: spread,
+        symbol,
         binance: ExchangeSettings {
             api_key:    mask(&binance_key),
             api_secret: mask(&binance_secret),
@@ -125,17 +127,18 @@ fn read_env_file(path: &str) -> std::collections::HashMap<String, String> {
     map
 }
 
-fn read_config_toml() -> (bool, f64, f64, bool, bool) {
+fn read_config_toml() -> (bool, f64, f64, bool, bool, String) {
     let Ok(content) = std::fs::read_to_string("config.toml") else {
-        return (true, 200.0, 0.00005, false, false);
+        return (true, 200.0, 0.00005, false, false, "SOLUSDT".to_string());
     };
     let paper = content.contains("paper_trading = true");
-    let size = extract_f64(&content, "trade_size_usdt").unwrap_or(200.0);
+    let size   = extract_f64(&content, "trade_size_usdt").unwrap_or(200.0);
     let spread = extract_f64(&content, "min_spread_pct").unwrap_or(0.00005);
-    // testnet lines: look in [binance] section
-    let bin_testnet = section_bool(&content, "[binance]", "testnet = true");
-    let bybit_testnet = section_bool(&content, "[bybit]", "testnet = true");
-    (paper, size, spread, bin_testnet, bybit_testnet)
+    let bin_testnet   = section_bool(&content, "[binance]", "testnet = true");
+    let bybit_testnet = section_bool(&content, "[bybit]",   "testnet = true");
+    let sym   = extract_str(&content, "symbol").unwrap_or("SOL".to_string());
+    let quote = extract_str(&content, "quote").unwrap_or("USDT".to_string());
+    (paper, size, spread, bin_testnet, bybit_testnet, format!("{}{}", sym, quote))
 }
 
 fn extract_f64(content: &str, key: &str) -> Option<f64> {
@@ -144,6 +147,18 @@ fn extract_f64(content: &str, key: &str) -> Option<f64> {
         if line.starts_with(key) {
             if let Some(val) = line.split('=').nth(1) {
                 return val.trim().trim_matches('"').parse().ok();
+            }
+        }
+    }
+    None
+}
+
+fn extract_str(content: &str, key: &str) -> Option<String> {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with(key) && line.contains('=') {
+            if let Some(val) = line.split('=').nth(1) {
+                return Some(val.trim().trim_matches('"').to_string());
             }
         }
     }
@@ -164,6 +179,10 @@ fn update_config_toml(payload: &ConfigPayload) -> anyhow::Result<()> {
     let content = std::fs::read_to_string("config.toml")?;
     let mut lines: Vec<String> = content.lines().map(String::from).collect();
 
+    let (sym, quote) = payload.symbol.strip_suffix("USDT")
+        .map(|s| (s.to_string(), "USDT".to_string()))
+        .unwrap_or(("SOL".to_string(), "USDT".to_string()));
+
     for line in &mut lines {
         let t = line.trim();
         if t.starts_with("paper_trading") {
@@ -172,6 +191,10 @@ fn update_config_toml(payload: &ConfigPayload) -> anyhow::Result<()> {
             *line = format!("trade_size_usdt  = \"{}\"", payload.trade_size_usdt);
         } else if t.starts_with("min_spread_pct") {
             *line = format!("min_spread_pct   = \"{}\"", payload.min_spread_pct);
+        } else if t.starts_with("symbol") {
+            *line = format!("symbol = \"{}\"", sym);
+        } else if t.starts_with("quote") {
+            *line = format!("quote  = \"{}\"", quote);
         }
     }
 
