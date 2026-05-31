@@ -44,3 +44,13 @@ export interface WsSnapshot {
   effective_min_spread_pct: number  // AS-2008 vol-adjusted threshold
   symbol: string
 }
+
+export interface MarketRow {
+  symbol: string
+  binance_ask: number
+  binance_bid: number
+  bybit_ask: number
+  bybit_bid: number
+  spread_ab: number
+  spread_ba: number
+}
