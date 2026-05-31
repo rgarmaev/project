@@ -16,17 +16,14 @@ use tokio::time::sleep;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-// Top-tier maker fee rates with rebates (professional HFT / VIP tier).
-// Limit orders on both legs → maker fills, often with negative rebate on perps.
-// Spot maker: ~0.005-0.01% at VIP-3+.
-// Perp maker: ~0.005% (rebate tiers common on Binance/Bybit for large volume).
+// Default taker fee rates (no VIP, market orders on both legs).
 fn fee_rate(market: &MarketId) -> Decimal {
     match (market.exchange, market.market_type) {
-        (Exchange::Binance, MarketType::Spot)    => dec!(0.00010),
-        (Exchange::Binance, MarketType::Futures) => dec!(0.00005),
-        (Exchange::Bybit,   MarketType::Spot)    => dec!(0.00010),
-        (Exchange::Bybit,   MarketType::Futures) => dec!(0.00005),
-        (Exchange::Mexc,    _)                   => dec!(0.00010),
+        (Exchange::Binance, MarketType::Spot)    => dec!(0.00100),
+        (Exchange::Binance, MarketType::Futures) => dec!(0.00050),
+        (Exchange::Bybit,   MarketType::Spot)    => dec!(0.00100),
+        (Exchange::Bybit,   MarketType::Futures) => dec!(0.00055),
+        (Exchange::Mexc,    _)                   => dec!(0.00050),
     }
 }
 

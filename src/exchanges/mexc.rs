@@ -114,7 +114,7 @@ impl MexcConnector {
             side,
             filled_qty,
             avg_price,
-            fee_usdt:  filled_qty * avg_price * dec!(0.002),
+            fee_usdt:  filled_qty * avg_price * dec!(0.0005),
             timestamp: Utc::now(),
         })
     }
@@ -135,7 +135,7 @@ impl MexcConnector {
             side,
             filled_qty:  quantity,
             avg_price:   price,
-            fee_usdt:    quantity * price * dec!(0.00010),
+            fee_usdt:    quantity * price * dec!(0.00050),
             timestamp:   Utc::now(),
         }
     }
