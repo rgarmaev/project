@@ -136,8 +136,8 @@ fn read_config_toml() -> (bool, f64, f64, bool, bool, String) {
     let spread = extract_f64(&content, "min_spread_pct").unwrap_or(0.00005);
     let bin_testnet   = section_bool(&content, "[binance]", "testnet = true");
     let bybit_testnet = section_bool(&content, "[bybit]",   "testnet = true");
-    let sym   = extract_str(&content, "symbol").unwrap_or("SOL".to_string());
-    let quote = extract_str(&content, "quote").unwrap_or("USDT".to_string());
+    let sym   = extract_str_in_section(&content, "[trading]", "symbol").unwrap_or("SOL".to_string());
+    let quote = extract_str_in_section(&content, "[trading]", "quote").unwrap_or("USDT".to_string());
     (paper, size, spread, bin_testnet, bybit_testnet, format!("{}{}", sym, quote))
 }
 
@@ -153,10 +153,15 @@ fn extract_f64(content: &str, key: &str) -> Option<f64> {
     None
 }
 
-fn extract_str(content: &str, key: &str) -> Option<String> {
+fn extract_str_in_section(content: &str, section: &str, key: &str) -> Option<String> {
+    let mut in_section = false;
     for line in content.lines() {
         let line = line.trim();
-        if line.starts_with(key) && line.contains('=') {
+        if line.starts_with('[') {
+            in_section = line == section;
+            continue;
+        }
+        if in_section && line.starts_with(key) && line.contains('=') {
             if let Some(val) = line.split('=').nth(1) {
                 return Some(val.trim().trim_matches('"').to_string());
             }
@@ -181,19 +186,23 @@ fn update_config_toml(payload: &ConfigPayload) -> anyhow::Result<()> {
 
     let (sym, quote) = payload.symbol.strip_suffix("USDT")
         .map(|s| (s.to_string(), "USDT".to_string()))
-        .unwrap_or(("SOL".to_string(), "USDT".to_string()));
+        .ok_or_else(|| anyhow::anyhow!("unrecognised quote currency in '{}'", payload.symbol))?;
 
+    let mut current_section = String::new();
     for line in &mut lines {
         let t = line.trim();
+        if t.starts_with('[') {
+            current_section = t.to_string();
+        }
         if t.starts_with("paper_trading") {
             *line = format!("paper_trading = {}", payload.paper_trading);
         } else if t.starts_with("trade_size_usdt") {
             *line = format!("trade_size_usdt  = \"{}\"", payload.trade_size_usdt);
         } else if t.starts_with("min_spread_pct") {
             *line = format!("min_spread_pct   = \"{}\"", payload.min_spread_pct);
-        } else if t.starts_with("symbol") {
+        } else if current_section == "[trading]" && t.starts_with("symbol") {
             *line = format!("symbol = \"{}\"", sym);
-        } else if t.starts_with("quote") {
+        } else if current_section == "[trading]" && t.starts_with("quote") {
             *line = format!("quote  = \"{}\"", quote);
         }
     }
