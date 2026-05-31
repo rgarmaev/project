@@ -130,15 +130,23 @@ Add to `dashboard/src/types.ts`.
 
 ### Modified: `dashboard/src/App.tsx`
 
-Import and mount `MarketScanner` below the PriceTable/TradesFeed grid:
+Import and mount `MarketScanner` **above** the PnlChart/ChartsRow grid:
 
 ```tsx
+<MetricsBar ... />
+{pendingSymbol && <banner />}
+
+<MarketScanner />   ← new, full width, ABOVE charts
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+  <PnlChart recentTrades={trades} />
+  <ChartsRow prices={prices} />
+</div>
+
 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
   <PriceTable prices={prices} />
   <TradesFeed trades={trades} />
 </div>
-
-<MarketScanner />   ← new, full width
 ```
 
 ## Error handling
