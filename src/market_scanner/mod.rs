@@ -65,10 +65,15 @@ impl MarketScanner {
             self.fetch_bybit(),
         );
 
-        let binance_map = binance_res.unwrap_or_default();
-        let bybit_map   = bybit_res.unwrap_or_default();
-
-        if binance_map.is_empty() && bybit_map.is_empty() {
+        let binance_map = match binance_res {
+            Ok(m) => m,
+            Err(e) => { warn!("Binance fetch failed: {e}"); HashMap::new() }
+        };
+        let bybit_map = match bybit_res {
+            Ok(m) => m,
+            Err(e) => { warn!("Bybit fetch failed: {e}"); HashMap::new() }
+        };
+        if binance_map.is_empty() || bybit_map.is_empty() {
             return Ok(());
         }
 
@@ -108,9 +113,14 @@ impl MarketScanner {
         for item in resp {
             let sym = item["symbol"].as_str().unwrap_or("").to_string();
             if set.contains(sym.as_str()) {
-                let bid: f64 = item["bidPrice"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-                let ask: f64 = item["askPrice"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-                map.insert(sym, (bid, ask));
+                if let (Some(bid), Some(ask)) = (
+                    item["bidPrice"].as_str().and_then(|s| s.parse::<f64>().ok()),
+                    item["askPrice"].as_str().and_then(|s| s.parse::<f64>().ok()),
+                ) {
+                    if bid > 0.0 && ask > 0.0 {
+                        map.insert(sym, (bid, ask));
+                    }
+                }
             }
         }
         Ok(map)
@@ -129,9 +139,14 @@ impl MarketScanner {
             for item in list {
                 let sym = item["symbol"].as_str().unwrap_or("").to_string();
                 if set.contains(sym.as_str()) {
-                    let bid: f64 = item["bid1Price"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-                    let ask: f64 = item["ask1Price"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-                    map.insert(sym, (bid, ask));
+                    if let (Some(bid), Some(ask)) = (
+                        item["bid1Price"].as_str().and_then(|s| s.parse::<f64>().ok()),
+                        item["ask1Price"].as_str().and_then(|s| s.parse::<f64>().ok()),
+                    ) {
+                        if bid > 0.0 && ask > 0.0 {
+                            map.insert(sym, (bid, ask));
+                        }
+                    }
                 }
             }
         }
