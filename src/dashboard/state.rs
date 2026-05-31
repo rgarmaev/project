@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    market_scanner::{MarketRow, MarketScanner},
+    market_scanner::{MarketScanner, MarketSnapshot},
     metrics::MetricsCollector,
     orderbook::PriceState,
     pricing::imbalance,
@@ -100,8 +100,8 @@ impl DashboardState {
         })
     }
 
-    pub fn market_snapshot(&self) -> Vec<MarketRow> {
-        self.scanner.snapshot()
+    pub fn market_snapshot(&self) -> MarketSnapshot {
+        self.scanner.full_snapshot()
     }
 
     pub fn push_trade(&self, trade: &CompletedTrade) {
