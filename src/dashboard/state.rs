@@ -69,6 +69,7 @@ pub struct WsSnapshot {
     pub prices: Vec<PriceEntry>,
     pub recent_trades: Vec<TradeRecord>,
     pub effective_min_spread_pct: f64,  // AS-2008 vol-adjusted threshold (in %)
+    pub symbol: String,
 }
 
 pub struct DashboardState {
@@ -163,6 +164,7 @@ impl DashboardState {
             prices,
             recent_trades: self.recent_trades(50),
             effective_min_spread_pct,
+            symbol: self.config.pair(),
         }
     }
 }
