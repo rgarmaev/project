@@ -22,6 +22,10 @@ fn fee_rate(market: &MarketId) -> f64 {
         (Exchange::Binance, MarketType::Futures) => 0.00050,
         (Exchange::Bybit,   MarketType::Spot)    => 0.00100,
         (Exchange::Bybit,   MarketType::Futures) => 0.00055,
+        (Exchange::Okx,     MarketType::Spot)    => 0.00080,
+        (Exchange::Okx,     MarketType::Futures) => 0.00050,
+        (Exchange::Bingx,   MarketType::Spot)    => 0.00100,
+        (Exchange::Bingx,   MarketType::Futures) => 0.00050,
         _                                         => 0.00100,
     }
 }
@@ -79,7 +83,12 @@ impl F64Ewma {
 // ── Market field enum ─────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy, PartialEq)]
-enum Field { SpotBinance, PerpBinance, SpotBybit, PerpBybit }
+enum Field {
+    SpotBinance, PerpBinance,
+    SpotBybit,   PerpBybit,
+    SpotOkx,     PerpOkx,
+    SpotBingx,   PerpBingx,
+}
 
 impl Field {
     fn get<'a>(&self, t: &'a MultiPairTick) -> Option<&'a MarketQuote> {
@@ -88,6 +97,10 @@ impl Field {
             Self::PerpBinance => t.perp_binance.as_ref(),
             Self::SpotBybit   => t.spot_bybit.as_ref(),
             Self::PerpBybit   => t.perp_bybit.as_ref(),
+            Self::SpotOkx     => t.spot_okx.as_ref(),
+            Self::PerpOkx     => t.perp_okx.as_ref(),
+            Self::SpotBingx   => t.spot_bingx.as_ref(),
+            Self::PerpBingx   => t.perp_bingx.as_ref(),
         }
     }
 
@@ -97,6 +110,10 @@ impl Field {
             Self::PerpBinance => MarketId::new(Exchange::Binance, MarketType::Futures),
             Self::SpotBybit   => MarketId::new(Exchange::Bybit,   MarketType::Spot),
             Self::PerpBybit   => MarketId::new(Exchange::Bybit,   MarketType::Futures),
+            Self::SpotOkx     => MarketId::new(Exchange::Okx,     MarketType::Spot),
+            Self::PerpOkx     => MarketId::new(Exchange::Okx,     MarketType::Futures),
+            Self::SpotBingx   => MarketId::new(Exchange::Bingx,   MarketType::Spot),
+            Self::PerpBingx   => MarketId::new(Exchange::Bingx,   MarketType::Futures),
         }
     }
 
@@ -106,15 +123,19 @@ impl Field {
             Self::PerpBinance => 1,
             Self::SpotBybit   => 2,
             Self::PerpBybit   => 3,
+            Self::SpotOkx     => 4,
+            Self::PerpOkx     => 5,
+            Self::SpotBingx   => 6,
+            Self::PerpBingx   => 7,
         }
     }
 }
 
-const FIELDS: [Field; 4] = [
-    Field::SpotBinance,
-    Field::PerpBinance,
-    Field::SpotBybit,
-    Field::PerpBybit,
+const FIELDS: [Field; 8] = [
+    Field::SpotBinance, Field::PerpBinance,
+    Field::SpotBybit,   Field::PerpBybit,
+    Field::SpotOkx,     Field::PerpOkx,
+    Field::SpotBingx,   Field::PerpBingx,
 ];
 
 // ── Detector ──────────────────────────────────────────────────────────────────
@@ -144,7 +165,7 @@ impl MultiPairDetector {
 
     pub async fn run(self: Arc<Self>) {
         info!(
-            "MultiPairDetector started — 50 pairs × 12 combos (min_spread={:.3}%  γ={}  τ={})",
+            "MultiPairDetector started — 8 markets × 56 combos per pair (min_spread={:.3}%  γ={}  τ={})",
             to_f64(self.config.trading.min_spread_pct) * 100.0,
             self.config.trading.gamma,
             self.config.trading.tau,
