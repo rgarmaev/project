@@ -10,7 +10,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
@@ -66,12 +66,23 @@ pub struct PriceEntry {
 }
 
 #[derive(Serialize, Clone)]
+pub struct OpportunityRow {
+    pub symbol:      String,
+    pub buy_market:  String,
+    pub sell_market: String,
+    pub spread_pct:  f64,
+    pub ask:         f64,
+    pub bid:         f64,
+}
+
+#[derive(Serialize, Clone)]
 pub struct WsSnapshot {
     pub metrics: crate::metrics::MetricsSnapshot,
     pub prices: Vec<PriceEntry>,
     pub recent_trades: Vec<TradeRecord>,
     pub effective_min_spread_pct: f64,  // AS-2008 vol-adjusted threshold (in %)
     pub symbol: String,
+    pub top_opportunities: Vec<OpportunityRow>,
 }
 
 pub struct DashboardState {
@@ -171,12 +182,62 @@ impl DashboardState {
         let base_min_pct = d(self.config.trading.min_spread_pct) * 100.0;
         let effective_min_spread_pct = base_min_pct + gamma * avg_var * tau * 100.0;
 
+        let stale = Duration::from_millis(500);
+        let mut opps: Vec<OpportunityRow> = Vec::new();
+
+        for entry in self.multi_feed.iter() {
+            let sym  = entry.key();
+            let tick = entry.value();
+            if tick.updated_at.elapsed() > stale { continue; }
+
+            let mut quotes: Vec<(&str, f64, f64)> = Vec::new();
+            if let Some(q) = &tick.spot_binance {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Binance:Spot", q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_binance {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Binance:Perp", q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.spot_bybit {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Bybit:Spot", q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_bybit {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Bybit:Perp", q.bid, q.ask)); }
+            }
+
+            let mut best: Option<OpportunityRow> = None;
+            for i in 0..quotes.len() {
+                for j in 0..quotes.len() {
+                    if i == j { continue; }
+                    let (buy_name, _, buy_ask) = quotes[i];
+                    let (sell_name, sell_bid, _) = quotes[j];
+                    if buy_ask <= 0.0 || sell_bid <= 0.0 { continue; }
+                    let spread_pct = (sell_bid - buy_ask) / buy_ask * 100.0;
+                    let replace = best.as_ref().map(|b| spread_pct > b.spread_pct).unwrap_or(true);
+                    if replace {
+                        best = Some(OpportunityRow {
+                            symbol:      sym.clone(),
+                            buy_market:  buy_name.to_string(),
+                            sell_market: sell_name.to_string(),
+                            spread_pct,
+                            ask:         buy_ask,
+                            bid:         sell_bid,
+                        });
+                    }
+                }
+            }
+            if let Some(row) = best { opps.push(row); }
+        }
+
+        opps.sort_by(|a, b| b.spread_pct.partial_cmp(&a.spread_pct).unwrap_or(std::cmp::Ordering::Equal));
+        opps.truncate(10);
+
         WsSnapshot {
             metrics: self.metrics.snapshot(),
             prices,
             recent_trades: self.recent_trades(50),
             effective_min_spread_pct,
             symbol: self.config.pair(),
+            top_opportunities: opps,
         }
     }
 }
