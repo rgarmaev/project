@@ -168,7 +168,7 @@ impl MultiPairDetector {
                     let mid = (q.bid + q.ask) / 2.0;
                     let key = (sym.clone(), field.idx());
                     let changed = self.last_mids.get(&key)
-                        .map(|prev| (*prev - mid).abs() > f64::EPSILON)
+                        .map(|prev| (*prev - mid).abs() > 1e-9)
                         .unwrap_or(true);
                     if changed {
                         self.last_mids.insert(key.clone(), mid);
