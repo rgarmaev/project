@@ -129,7 +129,7 @@ impl OrderExecutor {
         match exchange {
             Exchange::Binance => self.binance.place_order(symbol, market, side, qty, ps).await,
             Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, ps).await,
-            Exchange::Mexc    => self.mexc.place_order(side, qty, ps).await,
+            Exchange::Mexc    => self.mexc.place_order(symbol, side, qty, ps).await,
         }
     }
 }

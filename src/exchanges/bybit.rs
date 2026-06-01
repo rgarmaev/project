@@ -238,7 +238,7 @@ impl BybitConnector {
         let bits = order_id.as_u128();
         let total_bp = ((bits % 3) as i64 - 1) as i32;
         let price = base_price * (dec!(1) + Decimal::from(total_bp) / dec!(10000));
-        let fee_rate = if market == MarketType::Futures { dec!(0.00005) } else { dec!(0.00010) };
+        let fee_rate = if market == MarketType::Futures { dec!(0.00055) } else { dec!(0.001) };
         OrderResult {
             exchange:    Exchange::Bybit,
             market_type: market,

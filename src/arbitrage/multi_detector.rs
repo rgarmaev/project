@@ -8,10 +8,10 @@ use dashmap::DashMap;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 // ── Fee rates (taker, no VIP) ─────────────────────────────────────────────────
@@ -54,7 +54,7 @@ struct F64Ewma {
     lambda:   f64,
     variance: f64,
     last_mid: Option<f64>,
-    n:        u32,
+    n:        u64,
 }
 
 impl F64Ewma {
@@ -194,6 +194,7 @@ impl MultiPairDetector {
                 for &sell_field in &FIELDS {
                     if buy_field == sell_field { continue; }
                     if let (Some(buy_q), Some(sell_q)) = (buy_field.get(tick), sell_field.get(tick)) {
+                        if buy_q.updated_at.elapsed() > stale || sell_q.updated_at.elapsed() > stale { continue; }
                         let buy_var  = variances.get(&(sym.clone(), buy_field.idx())).copied().unwrap_or(0.0);
                         let sell_var = variances.get(&(sym.clone(), sell_field.idx())).copied().unwrap_or(0.0);
                         let avg_var  = (buy_var + sell_var) / 2.0;
@@ -204,7 +205,7 @@ impl MultiPairDetector {
                             avg_var,
                         ) {
                             if self.signal_tx.try_send(signal).is_err() {
-                                debug!("Signal channel full — dropping");
+                                warn!("Signal channel full — dropping");
                             }
                         }
                     }

@@ -76,10 +76,15 @@ impl MexcConnector {
 
     pub async fn place_order(
         &self,
+        symbol: &str,
         side: Side,
         quantity: Decimal,
         price_state: &SharedPriceState,
     ) -> Result<OrderResult> {
+        // MEXC is only used for single-pair arbitrage; log if symbol diverges
+        if symbol != self.config.pair() {
+            tracing::warn!("MEXC place_order called with symbol={} but configured for {}; using config pair", symbol, self.config.pair());
+        }
         if self.config.trading.paper_trading {
             return Ok(self.paper_fill(side, quantity, price_state));
         }

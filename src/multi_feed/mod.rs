@@ -12,10 +12,11 @@ use crate::tickers::TICKERS;
 
 #[derive(Debug, Clone)]
 pub struct MarketQuote {
-    pub bid:     f64,
-    pub ask:     f64,
-    pub bid_qty: f64,
-    pub ask_qty: f64,
+    pub bid:        f64,
+    pub ask:        f64,
+    pub bid_qty:    f64,
+    pub ask_qty:    f64,
+    pub updated_at: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -78,7 +79,7 @@ async fn connect_binance_once(
                 let ask_qty = v["A"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                 if let (Some(bid), Some(ask)) = (bid, ask) {
                     if bid > 0.0 && ask > 0.0 {
-                        let quote = MarketQuote { bid, ask, bid_qty, ask_qty };
+                        let quote = MarketQuote { bid, ask, bid_qty, ask_qty, updated_at: Instant::now() };
                         state.entry(sym.to_string())
                             .and_modify(|t| {
                                 if is_perp { t.perp_binance = Some(quote.clone()); }
@@ -166,7 +167,7 @@ async fn connect_bybit_once(
                         let ask_qty = data["ask1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                         if let (Some(bid), Some(ask)) = (bid, ask) {
                             if bid > 0.0 && ask > 0.0 {
-                                let quote = MarketQuote { bid, ask, bid_qty, ask_qty };
+                                let quote = MarketQuote { bid, ask, bid_qty, ask_qty, updated_at: Instant::now() };
                                 state.entry(sym.to_string())
                                     .and_modify(|t| {
                                         if is_perp { t.perp_bybit = Some(quote.clone()); }

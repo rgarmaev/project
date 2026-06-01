@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     );
 
     let price_state = Arc::new(PriceState::new());
-    let (signal_tx, signal_rx) = mpsc::channel(256);
+    let (signal_tx, signal_rx) = mpsc::channel(1024);
 
     let binance = Arc::new(BinanceConnector::new(config.clone()));
     let bybit   = Arc::new(BybitConnector::new(config.clone()));
