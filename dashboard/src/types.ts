@@ -37,12 +37,22 @@ export interface TradeRecord {
   sell_bid: number
 }
 
+export interface OpportunityRow {
+  symbol: string
+  buy_market: string
+  sell_market: string
+  spread_pct: number   // gross spread %, e.g. 0.127 means 0.127%
+  ask: number
+  bid: number
+}
+
 export interface WsSnapshot {
   metrics: MetricsSnapshot
   prices: PriceEntry[]
   recent_trades: TradeRecord[]
   effective_min_spread_pct: number  // AS-2008 vol-adjusted threshold
   symbol: string
+  top_opportunities: OpportunityRow[]
 }
 
 export interface MarketRow {
