@@ -2,12 +2,13 @@ mod arbitrage;
 mod config;
 mod dashboard;
 mod exchanges;
+mod market_scanner;
+mod multi_feed;
 mod metrics;
 mod orderbook;
 mod pricing;
 mod risk;
 mod types;
-mod market_scanner;
 mod tickers;
 
 use anyhow::Result;
