@@ -124,6 +124,24 @@ async fn main() -> Result<()> {
         set.spawn(async move { multi_feed::run_bybit_linear(s).await });
     }
 
+    // ── OKX + BingX feeds ────────────────────────────────────────────────────────
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_okx_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_okx_swap(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bingx_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bingx_swap(s).await });
+    }
+
     // ── Arbitrage engine ─────────────────────────────────────────────────────
     {
         let d = detector.clone();

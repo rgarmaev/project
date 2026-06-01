@@ -203,6 +203,18 @@ impl DashboardState {
             if let Some(q) = &tick.perp_bybit {
                 if q.updated_at.elapsed() <= stale { quotes.push(("Bybit:Perp", q.bid, q.ask)); }
             }
+            if let Some(q) = &tick.spot_okx {
+                if q.updated_at.elapsed() <= stale { quotes.push(("OKX:Spot",   q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_okx {
+                if q.updated_at.elapsed() <= stale { quotes.push(("OKX:Perp",   q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.spot_bingx {
+                if q.updated_at.elapsed() <= stale { quotes.push(("BingX:Spot", q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_bingx {
+                if q.updated_at.elapsed() <= stale { quotes.push(("BingX:Perp", q.bid, q.ask)); }
+            }
 
             let mut best: Option<OpportunityRow> = None;
             for i in 0..quotes.len() {
