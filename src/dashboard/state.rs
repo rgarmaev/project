@@ -2,6 +2,7 @@ use crate::{
     config::Config,
     market_scanner::{MarketScanner, MarketSnapshot},
     metrics::MetricsCollector,
+    multi_feed::MultiPairState,
     orderbook::PriceState,
     pricing::imbalance,
     pricing::microprice,
@@ -80,6 +81,7 @@ pub struct DashboardState {
     pub broadcast_tx: broadcast::Sender<String>,
     pub config: Arc<Config>,
     pub scanner: Arc<MarketScanner>,
+    pub multi_feed: MultiPairState,
 }
 
 impl DashboardState {
@@ -88,6 +90,7 @@ impl DashboardState {
         metrics: Arc<MetricsCollector>,
         config: Arc<Config>,
         scanner: Arc<MarketScanner>,
+        multi_feed: MultiPairState,
     ) -> Arc<Self> {
         let (broadcast_tx, _) = broadcast::channel(64);
         Arc::new(Self {
@@ -97,6 +100,7 @@ impl DashboardState {
             broadcast_tx,
             config,
             scanner,
+            multi_feed,
         })
     }
 
@@ -185,7 +189,14 @@ mod tests {
     fn make_state() -> Arc<DashboardState> {
         let config = Arc::new(Config::load().unwrap());
         let scanner = crate::market_scanner::MarketScanner::new();
-        DashboardState::new(Arc::new(PriceState::new()), Arc::new(MetricsCollector::new()), config, scanner)
+        let multi_feed = crate::multi_feed::new_state();
+        DashboardState::new(
+            Arc::new(PriceState::new()),
+            Arc::new(MetricsCollector::new()),
+            config,
+            scanner,
+            multi_feed,
+        )
     }
 
     #[test]

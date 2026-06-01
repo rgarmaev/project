@@ -55,8 +55,15 @@ async fn main() -> Result<()> {
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
     let scanner = MarketScanner::new();
+    let multi_state = multi_feed::new_state();
 
-    let dash_state = DashboardState::new(price_state.clone(), metrics.clone(), config.clone(), scanner.clone());
+    let dash_state = DashboardState::new(
+        price_state.clone(),
+        metrics.clone(),
+        config.clone(),
+        scanner.clone(),
+        multi_state.clone(),
+    );
 
     let detector = Arc::new(ArbitrageDetector::new(
         config.clone(),
@@ -97,6 +104,24 @@ async fn main() -> Result<()> {
     {
         let (m, ps) = (mexc.clone(), price_state.clone());
         set.spawn(async move { m.run_feed(ps).await });
+    }
+
+    // ── Multi-pair feeds ──────────────────────────────────────────────────────
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_binance_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_binance_perp(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bybit_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bybit_linear(s).await });
     }
 
     // ── Arbitrage engine ─────────────────────────────────────────────────────
