@@ -162,6 +162,7 @@ impl BybitConnector {
 
     pub async fn place_order(
         &self,
+        symbol: &str,
         market: MarketType,
         side: Side,
         quantity: Decimal,
@@ -179,7 +180,7 @@ impl BybitConnector {
         };
         let body = serde_json::json!({
             "category":  category,
-            "symbol":    self.config.pair(),
+            "symbol":    symbol,
             "side":      match side { Side::Buy => "Buy", Side::Sell => "Sell" },
             "orderType": "Market",
             "qty":       quantity.to_string(),

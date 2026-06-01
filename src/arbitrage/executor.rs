@@ -75,8 +75,8 @@ impl OrderExecutor {
         let ps  = &self.price_state;
 
         let (buy_res, sell_res) = tokio::join!(
-            self.place(signal.buy_market.exchange,  signal.buy_market.market_type,  Side::Buy,  qty, ps),
-            self.place(signal.sell_market.exchange, signal.sell_market.market_type, Side::Sell, qty, ps),
+            self.place(signal.buy_market.exchange,  &signal.symbol, signal.buy_market.market_type,  Side::Buy,  qty, ps),
+            self.place(signal.sell_market.exchange, &signal.symbol, signal.sell_market.market_type, Side::Sell, qty, ps),
         );
 
         let buy_order  = buy_res?;
@@ -97,8 +97,8 @@ impl OrderExecutor {
         };
 
         info!(
-            "TRADE {} | buy {}@{:.4} | sell {}@{:.4} | net_pnl={:.4} USDT | exec={}ms",
-            signal.id,
+            "TRADE {} {} | buy {}@{:.4} | sell {}@{:.4} | net_pnl={:.4} USDT | exec={}ms",
+            signal.symbol, signal.id,
             signal.buy_market,  buy_order.avg_price,
             signal.sell_market, sell_order.avg_price,
             net_pnl, exec_ms
@@ -120,14 +120,15 @@ impl OrderExecutor {
     async fn place(
         &self,
         exchange: Exchange,
+        symbol: &str,
         market: MarketType,
         side: Side,
         qty: rust_decimal::Decimal,
         ps: &SharedPriceState,
     ) -> Result<crate::types::OrderResult> {
         match exchange {
-            Exchange::Binance => self.binance.place_order(market, side, qty, ps).await,
-            Exchange::Bybit   => self.bybit.place_order(market, side, qty, ps).await,
+            Exchange::Binance => self.binance.place_order(symbol, market, side, qty, ps).await,
+            Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, ps).await,
             Exchange::Mexc    => self.mexc.place_order(side, qty, ps).await,
         }
     }

@@ -122,6 +122,7 @@ impl BinanceConnector {
 
     pub async fn place_order(
         &self,
+        symbol: &str,
         market: MarketType,
         side: Side,
         quantity: Decimal,
@@ -132,10 +133,9 @@ impl BinanceConnector {
         }
 
         let ts = now_ms();
-        let pair = self.config.pair();
         let params = format!(
             "symbol={}&side={}&type=MARKET&quantity={}&timestamp={}",
-            pair, side, quantity, ts
+            symbol, side, quantity, ts
         );
         let sig = sign_hmac_sha256(&self.config.binance.api_secret, &params);
         let body = format!("{}&signature={}", params, sig);
