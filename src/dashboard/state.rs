@@ -229,7 +229,7 @@ impl DashboardState {
         }
 
         opps.sort_by(|a, b| b.spread_pct.partial_cmp(&a.spread_pct).unwrap_or(std::cmp::Ordering::Equal));
-        opps.truncate(10);
+        opps.truncate(250);
 
         WsSnapshot {
             metrics: self.metrics.snapshot(),
