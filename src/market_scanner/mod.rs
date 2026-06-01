@@ -1,3 +1,4 @@
+use crate::tickers::TICKERS;
 use parking_lot::RwLock;
 use reqwest::Client;
 use serde::Serialize;
@@ -6,19 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
 use tracing::{info, warn};
-
-const TICKERS: &[&str] = &[
-    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-    "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "DOTUSDT", "MATICUSDT",
-    "LINKUSDT", "LTCUSDT", "UNIUSDT", "ATOMUSDT", "BCHUSDT",
-    "ICPUSDT", "APTUSDT", "ARBUSDT", "OPUSDT", "FILUSDT",
-    "NEARUSDT", "SANDUSDT", "MANAUSDT", "AXSUSDT", "ALGOUSDT",
-    "VETUSDT", "FTMUSDT", "HBARUSDT", "ETCUSDT", "XLMUSDT",
-    "TRXUSDT", "SUIUSDT", "SEIUSDT", "INJUSDT", "TIAUSDT",
-    "JUPUSDT", "WIFUSDT", "BONKUSDT", "PEPEUSDT", "SHIBUSDT",
-    "NOTUSDT", "TONUSDT", "STXUSDT", "RUNEUSDT", "RENDERUSDT",
-    "WLDUSDT", "ENAUSDT", "ZKUSDT", "THETAUSDT", "FLOKIUSDT",
-];
 
 #[derive(Serialize, Clone)]
 pub struct MarketRow {

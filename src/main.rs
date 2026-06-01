@@ -8,6 +8,7 @@ mod pricing;
 mod risk;
 mod types;
 mod market_scanner;
+mod tickers;
 
 use anyhow::Result;
 use std::sync::Arc;
