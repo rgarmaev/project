@@ -24,8 +24,7 @@ fn fee_rate(market: &MarketId) -> Decimal {
         (Exchange::Bybit,   MarketType::Spot)    => dec!(0.00100),
         (Exchange::Bybit,   MarketType::Futures) => dec!(0.00055),
         (Exchange::Mexc,    _)                   => dec!(0.00050),
-        (Exchange::Okx,     _)                   => dec!(0.00020),
-        (Exchange::Bingx,   _)                   => dec!(0.00020),
+        _                                        => dec!(0.00020),
     }
 }
 
