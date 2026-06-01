@@ -18,7 +18,7 @@ use tokio::task::JoinSet;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use arbitrage::{detector::ArbitrageDetector, executor::OrderExecutor};
+use arbitrage::{multi_detector::MultiPairDetector, executor::OrderExecutor};
 use dashboard::state::DashboardState;
 use exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector};
 use market_scanner::MarketScanner;
@@ -65,9 +65,9 @@ async fn main() -> Result<()> {
         multi_state.clone(),
     );
 
-    let detector = Arc::new(ArbitrageDetector::new(
+    let detector = Arc::new(MultiPairDetector::new(
         config.clone(),
-        price_state.clone(),
+        multi_state.clone(),
         signal_tx,
     ));
 
