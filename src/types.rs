@@ -9,14 +9,18 @@ pub enum Exchange {
     Binance,
     Bybit,
     Mexc,
+    Okx,
+    Bingx,
 }
 
 impl fmt::Display for Exchange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Exchange::Binance => write!(f, "Binance"),
-            Exchange::Bybit => write!(f, "Bybit"),
-            Exchange::Mexc => write!(f, "MEXC"),
+            Exchange::Bybit   => write!(f, "Bybit"),
+            Exchange::Mexc    => write!(f, "MEXC"),
+            Exchange::Okx     => write!(f, "OKX"),
+            Exchange::Bingx   => write!(f, "BingX"),
         }
     }
 }

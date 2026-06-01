@@ -130,6 +130,8 @@ impl OrderExecutor {
             Exchange::Binance => self.binance.place_order(symbol, market, side, qty, ps).await,
             Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, ps).await,
             Exchange::Mexc    => self.mexc.place_order(symbol, side, qty, ps).await,
+            Exchange::Okx     => anyhow::bail!("OKX order execution not implemented"),
+            Exchange::Bingx   => anyhow::bail!("BingX order execution not implemented"),
         }
     }
 }
