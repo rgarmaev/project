@@ -11,11 +11,19 @@ use tracing::warn;
 use crate::tickers::TICKERS;
 
 #[derive(Debug, Clone)]
+pub struct MarketQuote {
+    pub bid:     f64,
+    pub ask:     f64,
+    pub bid_qty: f64,
+    pub ask_qty: f64,
+}
+
+#[derive(Debug, Clone)]
 pub struct MultiPairTick {
-    pub spot_binance: Option<(f64, f64)>,
-    pub perp_binance: Option<(f64, f64)>,
-    pub spot_bybit:   Option<(f64, f64)>,
-    pub perp_bybit:   Option<(f64, f64)>,
+    pub spot_binance: Option<MarketQuote>,
+    pub perp_binance: Option<MarketQuote>,
+    pub spot_bybit:   Option<MarketQuote>,
+    pub perp_bybit:   Option<MarketQuote>,
     pub updated_at:   Instant,
 }
 
@@ -64,19 +72,22 @@ async fn connect_binance_once(
                 };
                 let sym = v["s"].as_str().unwrap_or("");
                 if !valid.contains(sym) { continue; }
-                let bid = v["b"].as_str().and_then(|s| s.parse::<f64>().ok());
-                let ask = v["a"].as_str().and_then(|s| s.parse::<f64>().ok());
+                let bid     = v["b"].as_str().and_then(|s| s.parse::<f64>().ok());
+                let ask     = v["a"].as_str().and_then(|s| s.parse::<f64>().ok());
+                let bid_qty = v["B"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                let ask_qty = v["A"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                 if let (Some(bid), Some(ask)) = (bid, ask) {
                     if bid > 0.0 && ask > 0.0 {
+                        let quote = MarketQuote { bid, ask, bid_qty, ask_qty };
                         state.entry(sym.to_string())
                             .and_modify(|t| {
-                                if is_perp { t.perp_binance = Some((bid, ask)); }
-                                else       { t.spot_binance = Some((bid, ask)); }
+                                if is_perp { t.perp_binance = Some(quote.clone()); }
+                                else       { t.spot_binance = Some(quote.clone()); }
                                 t.updated_at = Instant::now();
                             })
                             .or_insert_with(|| MultiPairTick {
-                                spot_binance: if !is_perp { Some((bid, ask)) } else { None },
-                                perp_binance: if  is_perp { Some((bid, ask)) } else { None },
+                                spot_binance: if !is_perp { Some(quote.clone()) } else { None },
+                                perp_binance: if  is_perp { Some(quote.clone()) } else { None },
                                 spot_bybit:   None,
                                 perp_bybit:   None,
                                 updated_at:   Instant::now(),
@@ -149,21 +160,24 @@ async fn connect_bybit_once(
                         let sym = &topic["tickers.".len()..];
                         if !valid.contains(sym) { continue; }
                         let data = &v["data"];
-                        let bid = data["bid1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
-                        let ask = data["ask1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
+                        let bid     = data["bid1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
+                        let ask     = data["ask1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
+                        let bid_qty = data["bid1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                        let ask_qty = data["ask1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                         if let (Some(bid), Some(ask)) = (bid, ask) {
                             if bid > 0.0 && ask > 0.0 {
+                                let quote = MarketQuote { bid, ask, bid_qty, ask_qty };
                                 state.entry(sym.to_string())
                                     .and_modify(|t| {
-                                        if is_perp { t.perp_bybit = Some((bid, ask)); }
-                                        else       { t.spot_bybit = Some((bid, ask)); }
+                                        if is_perp { t.perp_bybit = Some(quote.clone()); }
+                                        else       { t.spot_bybit = Some(quote.clone()); }
                                         t.updated_at = Instant::now();
                                     })
                                     .or_insert_with(|| MultiPairTick {
                                         spot_binance: None,
                                         perp_binance: None,
-                                        spot_bybit:   if !is_perp { Some((bid, ask)) } else { None },
-                                        perp_bybit:   if  is_perp { Some((bid, ask)) } else { None },
+                                        spot_bybit:   if !is_perp { Some(quote.clone()) } else { None },
+                                        perp_bybit:   if  is_perp { Some(quote.clone()) } else { None },
                                         updated_at:   Instant::now(),
                                     });
                             }
