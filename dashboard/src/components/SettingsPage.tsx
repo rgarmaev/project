@@ -30,6 +30,11 @@ const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: st
   mexc:    { name: 'MEXC',    color: '#0768f4', docsUrl: 'https://www.mexc.com/user/openapi' },
 }
 
+const READONLY_EXCHANGES = [
+  { id: 'okx',   name: 'OKX',   color: '#00d4ff', status: 'Мониторинг (spot + swap)', note: 'Исполнение ордеров не реализовано' },
+  { id: 'bingx', name: 'BingX', color: '#00d4aa', status: 'Мониторинг (spot + swap)', note: 'Исполнение ордеров не реализовано' },
+]
+
 function ExchangeBlock({
   id, cfg, onChange,
 }: {
@@ -190,6 +195,20 @@ export function SettingsPage() {
       {(['binance', 'bybit', 'mexc'] as const).map(id => (
         <ExchangeBlock key={id} id={id} cfg={config[id]}
           onChange={v => setConfig(c => ({ ...c, [id]: v }))} />
+      ))}
+
+      {/* Read-only exchange blocks (monitoring only) */}
+      {READONLY_EXCHANGES.map(ex => (
+        <div key={ex.id} style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: ex.color, fontWeight: 600, fontSize: 13 }}>{ex.name}</span>
+            <span style={{ background: '#0d1a0d', border: '1px solid #1a3a1a', borderRadius: 3, padding: '2px 8px', color: '#00aa44', fontSize: 10 }}>
+              PAPER ONLY
+            </span>
+          </div>
+          <div style={{ marginTop: 12, color: '#555', fontSize: 12 }}>{ex.status}</div>
+          <div style={{ marginTop: 4, color: '#333', fontSize: 11 }}>{ex.note}</div>
+        </div>
       ))}
 
       {/* Save + Restart buttons */}

@@ -43,8 +43,7 @@ const ROUTES = [
   { label: 'Bin.S→Byb.S', buyKey: 'Binance:Spot', sellKey: 'Bybit:Spot',   color: '#00ff87' },
   { label: 'Byb.S→Bin.S', buyKey: 'Bybit:Spot',   sellKey: 'Binance:Spot', color: '#4488ff' },
   { label: 'Bin.P→Byb.P', buyKey: 'Binance:Perp', sellKey: 'Bybit:Perp',   color: '#ffaa00' },
-  { label: 'Bin.S→MEX.S', buyKey: 'Binance:Spot', sellKey: 'MEXC:Spot',    color: '#ff44aa' },
-  { label: 'Byb.S→MEX.S', buyKey: 'Bybit:Spot',   sellKey: 'MEXC:Spot',    color: '#aa44ff' },
+  { label: 'Byb.P→Bin.P', buyKey: 'Bybit:Perp',   sellKey: 'Binance:Perp', color: '#ff44aa' },
 ]
 
 function SpreadChart({ history }: { history: Map<string, PricePoint[]> }) {
@@ -147,10 +146,11 @@ export function ChartsRow({ prices }: Props) {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      <SpreadChart history={history} />
+      <div style={{ gridColumn: '1 / -1' }}>
+        <SpreadChart history={history} />
+      </div>
       <ExchangeChart title="Binance · Bid / Ask" history={history} spotKey="Binance:Spot" perpKey="Binance:Perp" />
       <ExchangeChart title="Bybit · Bid / Ask"   history={history} spotKey="Bybit:Spot"   perpKey="Bybit:Perp" />
-      <ExchangeChart title="MEXC · Bid / Ask"    history={history} spotKey="MEXC:Spot" />
     </div>
   )
 }
