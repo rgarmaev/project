@@ -82,6 +82,7 @@ impl fmt::Display for Side {
 #[derive(Debug, Clone)]
 pub struct ArbitrageSignal {
     pub id: Uuid,
+    pub symbol: String,
     pub buy_market: MarketId,
     pub sell_market: MarketId,
     /// Price we'll pay on the buy leg (ask + slippage)

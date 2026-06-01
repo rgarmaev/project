@@ -205,6 +205,7 @@ impl ArbitrageDetector {
 
         Some(ArbitrageSignal {
             id: Uuid::new_v4(),
+            symbol: self.config.pair(),
             buy_market: buy.market,
             sell_market: sell.market,
             buy_ask: eff_buy,
