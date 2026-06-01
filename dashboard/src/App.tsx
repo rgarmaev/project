@@ -65,7 +65,7 @@ export default function App() {
         <>
           <MetricsBar metrics={metrics} paperTrading={false} effectiveMinSpreadPct={effectiveMinSpreadPct} />
           <MarketScanner />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
             <PnlChart recentTrades={trades} />
             <ChartsRow prices={prices} />
           </div>

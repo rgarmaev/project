@@ -36,10 +36,13 @@ export function PnlChart({ recentTrades }: Props) {
   const all = [...history, ...recentTrades.filter(t => !history.find(h => h.id === t.id))]
   const data = buildSeries(all)
 
+  // 422 = (16+23+150+16) * 2 panels + 12 gap — matches ChartsRow height exactly
+  const FIXED_H = 422
+
   return (
     <div style={{
       background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 16,
-      display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box',
+      height: FIXED_H, display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ color: '#666', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
         Cumulative PnL (USDT)
