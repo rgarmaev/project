@@ -139,6 +139,7 @@ mod tests {
         let market = MarketId::new(Exchange::Binance, MarketType::Spot);
         let signal = ArbitrageSignal {
             id: Uuid::new_v4(),
+            symbol: "BTCUSDT".to_string(),
             buy_market: market,
             sell_market: market,
             buy_ask: dec!(100),
