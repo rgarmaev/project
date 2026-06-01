@@ -10,6 +10,7 @@ use tracing::warn;
 
 use crate::tickers::TICKERS;
 
+#[derive(Debug, Clone)]
 pub struct MultiPairTick {
     pub spot_binance: Option<(f64, f64)>,
     pub perp_binance: Option<(f64, f64)>,
@@ -53,7 +54,7 @@ async fn connect_binance_once(
     valid: &HashSet<&str>,
 ) -> anyhow::Result<()> {
     let (ws, _) = connect_async(url).await?;
-    let (_, mut read) = ws.split();
+    let (mut write, mut read) = ws.split();
     while let Some(msg) = read.next().await {
         match msg? {
             Message::Text(text) => {
@@ -83,6 +84,7 @@ async fn connect_binance_once(
                     }
                 }
             }
+            Message::Ping(d) => { let _ = write.send(Message::Pong(d)).await; }
             Message::Close(_) => break,
             _ => {}
         }

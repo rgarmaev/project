@@ -3,13 +3,13 @@ mod config;
 mod dashboard;
 mod exchanges;
 mod market_scanner;
-mod multi_feed;
 mod metrics;
+mod multi_feed;
 mod orderbook;
 mod pricing;
 mod risk;
-mod types;
 mod tickers;
+mod types;
 
 use anyhow::Result;
 use std::sync::Arc;
