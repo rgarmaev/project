@@ -66,15 +66,13 @@ pub async fn run_gate_poller(map: WithdrawStatusMap) {
 async fn update_gate(client: &Client, map: &WithdrawStatusMap) -> anyhow::Result<usize> {
     #[derive(serde::Deserialize)]
     struct GateCurrency {
-        currency:         String,
+        currency:          String,
         #[serde(default)]
         withdraw_disabled: bool,
         #[serde(default)]
         deposit_disabled:  bool,
         #[serde(default)]
         delisted:          bool,
-        #[serde(default)]
-        trade_disabled:    bool,
     }
 
     let resp: Vec<GateCurrency> = client
