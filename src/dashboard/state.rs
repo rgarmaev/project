@@ -7,6 +7,7 @@ use crate::{
     pricing::imbalance,
     pricing::microprice,
     types::CompletedTrade,
+    withdrawal_status::{WithdrawStatusMap, check_coin},
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -67,12 +68,16 @@ pub struct PriceEntry {
 
 #[derive(Serialize, Clone)]
 pub struct OpportunityRow {
-    pub symbol:      String,
-    pub buy_market:  String,
-    pub sell_market: String,
-    pub spread_pct:  f64,
-    pub ask:         f64,
-    pub bid:         f64,
+    pub symbol:       String,
+    pub buy_market:   String,
+    pub sell_market:  String,
+    pub spread_pct:   f64,
+    pub ask:          f64,
+    pub bid:          f64,
+    /// None = status unknown, true = withdraw+deposit open, false = at least one blocked
+    pub withdraw_ok:  Option<bool>,
+    /// true = both legs are Spot markets
+    pub spot_only:    bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -80,9 +85,10 @@ pub struct WsSnapshot {
     pub metrics: crate::metrics::MetricsSnapshot,
     pub prices: Vec<PriceEntry>,
     pub recent_trades: Vec<TradeRecord>,
-    pub effective_min_spread_pct: f64,  // AS-2008 vol-adjusted threshold (in %)
+    pub effective_min_spread_pct: f64,
     pub symbol: String,
     pub top_opportunities: Vec<OpportunityRow>,
+    pub spot_opportunities: Vec<OpportunityRow>,
 }
 
 pub struct DashboardState {
@@ -93,6 +99,7 @@ pub struct DashboardState {
     pub config: Arc<Config>,
     pub scanner: Arc<MarketScanner>,
     pub multi_feed: MultiPairState,
+    pub withdraw_status: WithdrawStatusMap,
 }
 
 impl DashboardState {
@@ -102,6 +109,7 @@ impl DashboardState {
         config: Arc<Config>,
         scanner: Arc<MarketScanner>,
         multi_feed: MultiPairState,
+        withdraw_status: WithdrawStatusMap,
     ) -> Arc<Self> {
         let (broadcast_tx, _) = broadcast::channel(64);
         Arc::new(Self {
@@ -112,6 +120,7 @@ impl DashboardState {
             config,
             scanner,
             multi_feed,
+            withdraw_status,
         })
     }
 
@@ -183,7 +192,8 @@ impl DashboardState {
         let effective_min_spread_pct = base_min_pct + gamma * avg_var * tau * 100.0;
 
         let stale = Duration::from_millis(500);
-        let mut opps: Vec<OpportunityRow> = Vec::new();
+        let mut opps: Vec<OpportunityRow>      = Vec::new();
+        let mut spot_opps: Vec<OpportunityRow> = Vec::new();
 
         for entry in self.multi_feed.iter() {
             let sym  = entry.key();
@@ -234,7 +244,13 @@ impl DashboardState {
                 if q.updated_at.elapsed() <= stale { quotes.push(("Gate:Perp",    q.bid, q.ask)); }
             }
 
+            let withdraw_ok = check_coin(&self.withdraw_status, sym);
+
+            // All-market best opportunity
             let mut best: Option<OpportunityRow> = None;
+            // Spot-only best opportunity
+            let mut best_spot: Option<OpportunityRow> = None;
+
             for i in 0..quotes.len() {
                 for j in 0..quotes.len() {
                     if i == j { continue; }
@@ -242,24 +258,37 @@ impl DashboardState {
                     let (sell_name, sell_bid, _) = quotes[j];
                     if buy_ask <= 0.0 || sell_bid <= 0.0 { continue; }
                     let spread_pct = (sell_bid - buy_ask) / buy_ask * 100.0;
-                    let replace = best.as_ref().map(|b| spread_pct > b.spread_pct).unwrap_or(true);
-                    if replace {
-                        best = Some(OpportunityRow {
-                            symbol:      sym.clone(),
-                            buy_market:  buy_name.to_string(),
-                            sell_market: sell_name.to_string(),
-                            spread_pct,
-                            ask:         buy_ask,
-                            bid:         sell_bid,
-                        });
+                    let is_spot_only = buy_name.ends_with(":Spot") && sell_name.ends_with(":Spot");
+
+                    let row = OpportunityRow {
+                        symbol:      sym.clone(),
+                        buy_market:  buy_name.to_string(),
+                        sell_market: sell_name.to_string(),
+                        spread_pct,
+                        ask:         buy_ask,
+                        bid:         sell_bid,
+                        withdraw_ok,
+                        spot_only: is_spot_only,
+                    };
+
+                    if best.as_ref().map(|b| spread_pct > b.spread_pct).unwrap_or(true) {
+                        best = Some(row.clone());
+                    }
+                    if is_spot_only {
+                        if best_spot.as_ref().map(|b| spread_pct > b.spread_pct).unwrap_or(true) {
+                            best_spot = Some(row);
+                        }
                     }
                 }
             }
-            if let Some(row) = best { opps.push(row); }
+            if let Some(row) = best      { opps.push(row); }
+            if let Some(row) = best_spot { spot_opps.push(row); }
         }
 
         opps.sort_by(|a, b| b.spread_pct.partial_cmp(&a.spread_pct).unwrap_or(std::cmp::Ordering::Equal));
         opps.truncate(250);
+        spot_opps.sort_by(|a, b| b.spread_pct.partial_cmp(&a.spread_pct).unwrap_or(std::cmp::Ordering::Equal));
+        spot_opps.truncate(250);
 
         WsSnapshot {
             metrics: self.metrics.snapshot(),
@@ -268,6 +297,7 @@ impl DashboardState {
             effective_min_spread_pct,
             symbol: self.config.pair(),
             top_opportunities: opps,
+            spot_opportunities: spot_opps,
         }
     }
 }
@@ -281,12 +311,14 @@ mod tests {
         let config = Arc::new(Config::load().unwrap());
         let scanner = crate::market_scanner::MarketScanner::new();
         let multi_feed = crate::multi_feed::new_state();
+        let withdraw_status = crate::withdrawal_status::new_status_map();
         DashboardState::new(
             Arc::new(PriceState::new()),
             Arc::new(MetricsCollector::new()),
             config,
             scanner,
             multi_feed,
+            withdraw_status,
         )
     }
 

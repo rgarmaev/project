@@ -41,18 +41,21 @@ export interface OpportunityRow {
   symbol: string
   buy_market: string
   sell_market: string
-  spread_pct: number   // gross spread %, e.g. 0.127 means 0.127%
+  spread_pct: number
   ask: number
   bid: number
+  withdraw_ok: boolean | null  // null = unknown, true = open, false = blocked
+  spot_only: boolean
 }
 
 export interface WsSnapshot {
   metrics: MetricsSnapshot
   prices: PriceEntry[]
   recent_trades: TradeRecord[]
-  effective_min_spread_pct: number  // AS-2008 vol-adjusted threshold
+  effective_min_spread_pct: number
   symbol: string
   top_opportunities: OpportunityRow[]
+  spot_opportunities: OpportunityRow[]
 }
 
 export interface MarketRow {

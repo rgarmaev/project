@@ -10,6 +10,7 @@ mod pricing;
 mod risk;
 mod tickers;
 mod types;
+mod withdrawal_status;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -67,7 +68,8 @@ async fn main() -> Result<()> {
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
     let scanner = MarketScanner::new();
-    let multi_state = multi_feed::new_state();
+    let multi_state    = multi_feed::new_state();
+    let withdraw_state = withdrawal_status::new_status_map();
 
     let dash_state = DashboardState::new(
         price_state.clone(),
@@ -75,6 +77,7 @@ async fn main() -> Result<()> {
         config.clone(),
         scanner.clone(),
         multi_state.clone(),
+        withdraw_state.clone(),
     );
 
     let detector = Arc::new(MultiPairDetector::new(
@@ -192,6 +195,12 @@ async fn main() -> Result<()> {
     {
         let e = executor.clone();
         set.spawn(async move { e.run(signal_rx).await });
+    }
+
+    // ── Withdrawal status ────────────────────────────────────────────────────
+    {
+        let ws = withdraw_state.clone();
+        set.spawn(async move { withdrawal_status::run_gate_poller(ws).await });
     }
 
     // ── Dashboard ────────────────────────────────────────────────────────────

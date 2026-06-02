@@ -40,7 +40,8 @@ export default function App() {
   const prices = snapshot?.prices ?? []
   const trades = snapshot?.recent_trades ?? []
   const effectiveMinSpreadPct = snapshot?.effective_min_spread_pct ?? 0
-  const opportunities = snapshot?.top_opportunities ?? []
+  const opportunities     = snapshot?.top_opportunities  ?? []
+  const spotOpportunities = snapshot?.spot_opportunities ?? []
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -70,7 +71,7 @@ export default function App() {
             <ChartsRow prices={prices} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <TopOpportunities data={opportunities} />
+            <TopOpportunities data={opportunities} spotData={spotOpportunities} />
             <TradesFeed trades={trades} />
           </div>
           <StatusBar status={status} lastUpdate={lastUpdate} />
