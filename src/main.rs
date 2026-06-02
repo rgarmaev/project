@@ -20,7 +20,15 @@ use tracing_subscriber::EnvFilter;
 
 use arbitrage::{multi_detector::MultiPairDetector, executor::OrderExecutor};
 use dashboard::state::DashboardState;
-use exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector, okx::OkxConnector};
+use exchanges::{
+    binance::BinanceConnector,
+    bitget::BitgetConnector,
+    bybit::BybitConnector,
+    gate::GateConnector,
+    kucoin::KucoinConnector,
+    mexc::MexcConnector,
+    okx::OkxConnector,
+};
 use market_scanner::MarketScanner;
 use metrics::MetricsCollector;
 use orderbook::PriceState;
@@ -53,6 +61,9 @@ async fn main() -> Result<()> {
     let bybit   = Arc::new(BybitConnector::new(config.clone()));
     let mexc    = Arc::new(MexcConnector::new(config.clone()));
     let okx     = Arc::new(OkxConnector::new(config.clone()));
+    let bitget  = Arc::new(BitgetConnector::new(config.clone()));
+    let kucoin  = Arc::new(KucoinConnector::new(config.clone()));
+    let gate    = Arc::new(GateConnector::new(config.clone()));
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
     let scanner = MarketScanner::new();
@@ -79,6 +90,9 @@ async fn main() -> Result<()> {
         bybit.clone(),
         mexc.clone(),
         okx.clone(),
+        bitget.clone(),
+        kucoin.clone(),
+        gate.clone(),
         risk.clone(),
         metrics.clone(),
         dash_state.clone(),
@@ -142,6 +156,32 @@ async fn main() -> Result<()> {
     {
         let s = multi_state.clone();
         set.spawn(async move { multi_feed::run_bingx_swap(s).await });
+    }
+
+    // ── Bitget + KuCoin + Gate feeds ─────────────────────────────────────────
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bitget_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_bitget_futures(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_kucoin_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_kucoin_futures(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_gate_spot(s).await });
+    }
+    {
+        let s = multi_state.clone();
+        set.spawn(async move { multi_feed::run_gate_futures(s).await });
     }
 
     // ── Arbitrage engine ─────────────────────────────────────────────────────

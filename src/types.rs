@@ -11,6 +11,9 @@ pub enum Exchange {
     Mexc,
     Okx,
     Bingx,
+    Bitget,
+    Kucoin,
+    Gate,
 }
 
 impl fmt::Display for Exchange {
@@ -21,6 +24,9 @@ impl fmt::Display for Exchange {
             Exchange::Mexc    => write!(f, "MEXC"),
             Exchange::Okx     => write!(f, "OKX"),
             Exchange::Bingx   => write!(f, "BingX"),
+            Exchange::Bitget  => write!(f, "Bitget"),
+            Exchange::Kucoin  => write!(f, "KuCoin"),
+            Exchange::Gate    => write!(f, "Gate.io"),
         }
     }
 }

@@ -79,16 +79,11 @@ async fn connect_bybit_once(
                                         else       { t.spot_bybit = Some(quote.clone()); }
                                         t.updated_at = Instant::now();
                                     })
-                                    .or_insert_with(|| MultiPairTick {
-                                        spot_binance: None,
-                                        perp_binance: None,
-                                        spot_bybit:   if !is_perp { Some(quote.clone()) } else { None },
-                                        perp_bybit:   if  is_perp { Some(quote.clone()) } else { None },
-                                        spot_okx:     None,
-                                        perp_okx:     None,
-                                        spot_bingx:   None,
-                                        perp_bingx:   None,
-                                        updated_at:   Instant::now(),
+                                    .or_insert_with(|| {
+                                        let mut t = super::blank_tick();
+                                        if is_perp { t.perp_bybit = Some(quote.clone()); }
+                                        else       { t.spot_bybit = Some(quote.clone()); }
+                                        t
                                     });
                             }
                         }

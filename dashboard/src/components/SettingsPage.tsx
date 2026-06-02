@@ -18,6 +18,23 @@ interface BingxSettings {
   api_secret: string
 }
 
+interface BitgetSettings {
+  api_key: string
+  api_secret: string
+  passphrase: string
+}
+
+interface KucoinSettings {
+  api_key: string
+  api_secret: string
+  passphrase: string
+}
+
+interface GateSettings {
+  api_key: string
+  api_secret: string
+}
+
 interface Config {
   paper_trading: boolean
   trade_size_usdt: number
@@ -27,6 +44,9 @@ interface Config {
   mexc: ExchangeSettings
   okx: OkxSettings
   bingx: BingxSettings
+  bitget: BitgetSettings
+  kucoin: KucoinSettings
+  gate: GateSettings
 }
 
 const EMPTY_CONFIG: Config = {
@@ -38,6 +58,9 @@ const EMPTY_CONFIG: Config = {
   mexc:    { api_key: '', api_secret: '', testnet: false },
   okx:     { api_key: '', api_secret: '', passphrase: '', testnet: false },
   bingx:   { api_key: '', api_secret: '' },
+  bitget: { api_key: '', api_secret: '', passphrase: '' },
+  kucoin: { api_key: '', api_secret: '', passphrase: '' },
+  gate:   { api_key: '', api_secret: '' },
 }
 
 const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: string }> = {
@@ -188,6 +211,61 @@ function OkxBlock({ cfg, onChange }: { cfg: OkxSettings; onChange: (v: OkxSettin
   )
 }
 
+function BitgetBlock({ cfg, onChange }: { cfg: BitgetSettings; onChange: (v: BitgetSettings) => void }) {
+  const [showKey, setShowKey]   = useState(false)
+  const [showSec, setShowSec]   = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  return (
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: '#00d4ff', fontWeight: 600, fontSize: 13 }}>Bitget</span>
+        <a href="https://www.bitget.com/account/newapi" target="_blank" rel="noreferrer" style={{ color: '#444', fontSize: 11, textDecoration: 'none' }}>Get API keys ↗</a>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Field label="API Key"    value={cfg.api_key}    show={showKey}  onToggle={() => setShowKey(v => !v)}  onChange={v => onChange({ ...cfg, api_key: v })} />
+        <Field label="API Secret" value={cfg.api_secret} show={showSec}  onToggle={() => setShowSec(v => !v)}  onChange={v => onChange({ ...cfg, api_secret: v })} />
+        <Field label="Passphrase" value={cfg.passphrase} show={showPass} onToggle={() => setShowPass(v => !v)} onChange={v => onChange({ ...cfg, passphrase: v })} />
+      </div>
+    </div>
+  )
+}
+
+function KucoinBlock({ cfg, onChange }: { cfg: KucoinSettings; onChange: (v: KucoinSettings) => void }) {
+  const [showKey, setShowKey]   = useState(false)
+  const [showSec, setShowSec]   = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  return (
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: '#00d4aa', fontWeight: 600, fontSize: 13 }}>KuCoin</span>
+        <a href="https://www.kucoin.com/account/api" target="_blank" rel="noreferrer" style={{ color: '#444', fontSize: 11, textDecoration: 'none' }}>Get API keys ↗</a>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Field label="API Key"    value={cfg.api_key}    show={showKey}  onToggle={() => setShowKey(v => !v)}  onChange={v => onChange({ ...cfg, api_key: v })} />
+        <Field label="API Secret" value={cfg.api_secret} show={showSec}  onToggle={() => setShowSec(v => !v)}  onChange={v => onChange({ ...cfg, api_secret: v })} />
+        <Field label="Passphrase" value={cfg.passphrase} show={showPass} onToggle={() => setShowPass(v => !v)} onChange={v => onChange({ ...cfg, passphrase: v })} />
+      </div>
+    </div>
+  )
+}
+
+function GateBlock({ cfg, onChange }: { cfg: GateSettings; onChange: (v: GateSettings) => void }) {
+  const [showKey, setShowKey] = useState(false)
+  const [showSec, setShowSec] = useState(false)
+  return (
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: '#e6b800', fontWeight: 600, fontSize: 13 }}>Gate.io</span>
+        <a href="https://www.gate.io/myaccount/apiv4keys" target="_blank" rel="noreferrer" style={{ color: '#444', fontSize: 11, textDecoration: 'none' }}>Get API keys ↗</a>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Field label="API Key"    value={cfg.api_key}    show={showKey} onToggle={() => setShowKey(v => !v)} onChange={v => onChange({ ...cfg, api_key: v })} />
+        <Field label="API Secret" value={cfg.api_secret} show={showSec} onToggle={() => setShowSec(v => !v)} onChange={v => onChange({ ...cfg, api_secret: v })} />
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   const [config, setConfig] = useState<Config>(EMPTY_CONFIG)
   const [status, setStatus] = useState<string | null>(null)
@@ -265,6 +343,15 @@ export function SettingsPage() {
 
       {/* BingX block */}
       <BingxBlock cfg={config.bingx} onChange={v => setConfig(c => ({ ...c, bingx: v }))} />
+
+      {/* Bitget block */}
+      <BitgetBlock cfg={config.bitget} onChange={v => setConfig(c => ({ ...c, bitget: v }))} />
+
+      {/* KuCoin block */}
+      <KucoinBlock cfg={config.kucoin} onChange={v => setConfig(c => ({ ...c, kucoin: v }))} />
+
+      {/* Gate.io block */}
+      <GateBlock cfg={config.gate} onChange={v => setConfig(c => ({ ...c, gate: v }))} />
 
       {/* Read-only exchange blocks (monitoring only) */}
       {READONLY_EXCHANGES.map(ex => (

@@ -80,16 +80,11 @@ async fn connect_bingx_once(
                                 else       { t.spot_bingx = Some(quote.clone()); }
                                 t.updated_at = Instant::now();
                             })
-                            .or_insert_with(|| MultiPairTick {
-                                spot_binance: None,
-                                perp_binance: None,
-                                spot_bybit:   None,
-                                perp_bybit:   None,
-                                spot_okx:     None,
-                                perp_okx:     None,
-                                spot_bingx:   if !is_swap { Some(quote.clone()) } else { None },
-                                perp_bingx:   if  is_swap { Some(quote.clone()) } else { None },
-                                updated_at:   Instant::now(),
+                            .or_insert_with(|| {
+                                let mut t = super::blank_tick();
+                                if is_swap { t.perp_bingx = Some(quote.clone()); }
+                                else       { t.spot_bingx = Some(quote.clone()); }
+                                t
                             });
                     }
                 }

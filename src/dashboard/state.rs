@@ -215,6 +215,24 @@ impl DashboardState {
             if let Some(q) = &tick.perp_bingx {
                 if q.updated_at.elapsed() <= stale { quotes.push(("BingX:Perp", q.bid, q.ask)); }
             }
+            if let Some(q) = &tick.spot_bitget {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Bitget:Spot",  q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_bitget {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Bitget:Perp",  q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.spot_kucoin {
+                if q.updated_at.elapsed() <= stale { quotes.push(("KuCoin:Spot",  q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_kucoin {
+                if q.updated_at.elapsed() <= stale { quotes.push(("KuCoin:Perp",  q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.spot_gate {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Gate:Spot",    q.bid, q.ask)); }
+            }
+            if let Some(q) = &tick.perp_gate {
+                if q.updated_at.elapsed() <= stale { quotes.push(("Gate:Perp",    q.bid, q.ask)); }
+            }
 
             let mut best: Option<OpportunityRow> = None;
             for i in 0..quotes.len() {

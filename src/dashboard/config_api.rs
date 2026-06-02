@@ -24,6 +24,26 @@ pub struct BingxSettings {
     pub api_secret: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BitgetSettings {
+    pub api_key: String,
+    pub api_secret: String,
+    pub passphrase: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct KucoinSettings {
+    pub api_key: String,
+    pub api_secret: String,
+    pub passphrase: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GateSettings {
+    pub api_key: String,
+    pub api_secret: String,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ConfigPayload {
     pub paper_trading: bool,
@@ -35,6 +55,9 @@ pub struct ConfigPayload {
     pub mexc: ExchangeSettings,
     pub okx: OkxSettings,
     pub bingx: BingxSettings,
+    pub bitget: BitgetSettings,
+    pub kucoin: KucoinSettings,
+    pub gate: GateSettings,
 }
 
 pub async fn get_config(
@@ -55,6 +78,14 @@ pub async fn get_config(
     let okx_pass       = env_vars.get("OKX_PASSPHRASE").cloned().unwrap_or_default();
     let bingx_key      = env_vars.get("BINGX_API_KEY").cloned().unwrap_or_default();
     let bingx_secret   = env_vars.get("BINGX_API_SECRET").cloned().unwrap_or_default();
+    let bitget_key    = env_vars.get("BITGET_API_KEY").cloned().unwrap_or_default();
+    let bitget_secret = env_vars.get("BITGET_API_SECRET").cloned().unwrap_or_default();
+    let bitget_pass   = env_vars.get("BITGET_PASSPHRASE").cloned().unwrap_or_default();
+    let kucoin_key    = env_vars.get("KUCOIN_API_KEY").cloned().unwrap_or_default();
+    let kucoin_secret = env_vars.get("KUCOIN_API_SECRET").cloned().unwrap_or_default();
+    let kucoin_pass   = env_vars.get("KUCOIN_PASSPHRASE").cloned().unwrap_or_default();
+    let gate_key      = env_vars.get("GATE_API_KEY").cloned().unwrap_or_default();
+    let gate_secret   = env_vars.get("GATE_API_SECRET").cloned().unwrap_or_default();
 
     // Read config.toml for trading params
     let (paper, size, spread, bin_testnet, bybit_testnet, symbol) = read_config_toml();
@@ -88,6 +119,20 @@ pub async fn get_config(
         bingx: BingxSettings {
             api_key:    mask(&bingx_key),
             api_secret: mask(&bingx_secret),
+        },
+        bitget: BitgetSettings {
+            api_key:    mask(&bitget_key),
+            api_secret: mask(&bitget_secret),
+            passphrase: mask(&bitget_pass),
+        },
+        kucoin: KucoinSettings {
+            api_key:    mask(&kucoin_key),
+            api_secret: mask(&kucoin_secret),
+            passphrase: mask(&kucoin_pass),
+        },
+        gate: GateSettings {
+            api_key:    mask(&gate_key),
+            api_secret: mask(&gate_secret),
         },
     })
 }
@@ -134,13 +179,43 @@ pub async fn post_config(
         existing.get("BINGX_API_SECRET").cloned().unwrap_or_default()
     } else { payload.bingx.api_secret.clone() };
 
+    let bitget_key = if payload.bitget.api_key.contains('*') {
+        existing.get("BITGET_API_KEY").cloned().unwrap_or_default()
+    } else { payload.bitget.api_key.clone() };
+    let bitget_secret = if payload.bitget.api_secret.contains('*') {
+        existing.get("BITGET_API_SECRET").cloned().unwrap_or_default()
+    } else { payload.bitget.api_secret.clone() };
+    let bitget_pass = if payload.bitget.passphrase.contains('*') {
+        existing.get("BITGET_PASSPHRASE").cloned().unwrap_or_default()
+    } else { payload.bitget.passphrase.clone() };
+
+    let kucoin_key = if payload.kucoin.api_key.contains('*') {
+        existing.get("KUCOIN_API_KEY").cloned().unwrap_or_default()
+    } else { payload.kucoin.api_key.clone() };
+    let kucoin_secret = if payload.kucoin.api_secret.contains('*') {
+        existing.get("KUCOIN_API_SECRET").cloned().unwrap_or_default()
+    } else { payload.kucoin.api_secret.clone() };
+    let kucoin_pass = if payload.kucoin.passphrase.contains('*') {
+        existing.get("KUCOIN_PASSPHRASE").cloned().unwrap_or_default()
+    } else { payload.kucoin.passphrase.clone() };
+
+    let gate_key = if payload.gate.api_key.contains('*') {
+        existing.get("GATE_API_KEY").cloned().unwrap_or_default()
+    } else { payload.gate.api_key.clone() };
+    let gate_secret = if payload.gate.api_secret.contains('*') {
+        existing.get("GATE_API_SECRET").cloned().unwrap_or_default()
+    } else { payload.gate.api_secret.clone() };
+
     let env_content = format!(
-        "BINANCE_API_KEY={}\nBINANCE_API_SECRET={}\n\nBYBIT_API_KEY={}\nBYBIT_API_SECRET={}\n\nMEXC_API_KEY={}\nMEXC_API_SECRET={}\n\nOKX_API_KEY={}\nOKX_API_SECRET={}\nOKX_PASSPHRASE={}\n\nBINGX_API_KEY={}\nBINGX_API_SECRET={}\n\nRUST_LOG=sol_arb=info\n",
+        "BINANCE_API_KEY={}\nBINANCE_API_SECRET={}\n\nBYBIT_API_KEY={}\nBYBIT_API_SECRET={}\n\nMEXC_API_KEY={}\nMEXC_API_SECRET={}\n\nOKX_API_KEY={}\nOKX_API_SECRET={}\nOKX_PASSPHRASE={}\n\nBINGX_API_KEY={}\nBINGX_API_SECRET={}\n\nBITGET_API_KEY={}\nBITGET_API_SECRET={}\nBITGET_PASSPHRASE={}\n\nKUCOIN_API_KEY={}\nKUCOIN_API_SECRET={}\nKUCOIN_PASSPHRASE={}\n\nGATE_API_KEY={}\nGATE_API_SECRET={}\n\nRUST_LOG=sol_arb=info\n",
         binance_key, binance_secret,
         bybit_key, bybit_secret,
         mexc_key, mexc_secret,
         okx_key, okx_secret, okx_pass,
         bingx_key, bingx_secret,
+        bitget_key, bitget_secret, bitget_pass,
+        kucoin_key, kucoin_secret, kucoin_pass,
+        gate_key, gate_secret,
     );
 
     if let Err(e) = std::fs::write(".env", &env_content) {

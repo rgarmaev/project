@@ -1,7 +1,15 @@
 use crate::{
     config::Config,
     dashboard::state::DashboardState,
-    exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector, okx::OkxConnector},
+    exchanges::{
+        binance::BinanceConnector,
+        bitget::BitgetConnector,
+        bybit::BybitConnector,
+        gate::GateConnector,
+        kucoin::KucoinConnector,
+        mexc::MexcConnector,
+        okx::OkxConnector,
+    },
     metrics::MetricsCollector,
     orderbook::SharedPriceState,
     risk::RiskManager,
@@ -21,6 +29,9 @@ pub struct OrderExecutor {
     bybit: Arc<BybitConnector>,
     mexc: Arc<MexcConnector>,
     okx: Arc<OkxConnector>,
+    bitget: Arc<BitgetConnector>,
+    kucoin: Arc<KucoinConnector>,
+    gate: Arc<GateConnector>,
     risk: Arc<RiskManager>,
     metrics: Arc<MetricsCollector>,
     dashboard: Arc<DashboardState>,
@@ -34,11 +45,14 @@ impl OrderExecutor {
         bybit: Arc<BybitConnector>,
         mexc: Arc<MexcConnector>,
         okx: Arc<OkxConnector>,
+        bitget: Arc<BitgetConnector>,
+        kucoin: Arc<KucoinConnector>,
+        gate: Arc<GateConnector>,
         risk: Arc<RiskManager>,
         metrics: Arc<MetricsCollector>,
         dashboard: Arc<DashboardState>,
     ) -> Self {
-        Self { config, price_state, binance, bybit, mexc, okx, risk, metrics, dashboard }
+        Self { config, price_state, binance, bybit, mexc, okx, bitget, kucoin, gate, risk, metrics, dashboard }
     }
 
     pub async fn run(self: Arc<Self>, mut rx: mpsc::Receiver<ArbitrageSignal>) {
@@ -138,6 +152,9 @@ impl OrderExecutor {
             Exchange::Mexc    => self.mexc.place_order(symbol, side, qty, ps).await,
             Exchange::Okx     => self.okx.place_order(symbol, market, side, qty, price_hint, ps).await,
             Exchange::Bingx   => anyhow::bail!("BingX order execution not implemented"),
+            Exchange::Bitget  => self.bitget.place_order(symbol, market, side, qty, price_hint, ps).await,
+            Exchange::Kucoin  => self.kucoin.place_order(symbol, market, side, qty, price_hint, ps).await,
+            Exchange::Gate    => self.gate.place_order(symbol, market, side, qty, price_hint, ps).await,
         }
     }
 }

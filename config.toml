@@ -3,7 +3,7 @@ symbol = "BTC"
 quote  = "USDT"
 
 # Minimum net spread (after fees) to trigger a trade: 0.05% = net after all exchange fees
-min_spread_pct   = "0.0025"
+min_spread_pct   = "0.0015"
 
 # USDT notional per leg
 trade_size_usdt  = "100"
@@ -53,4 +53,18 @@ testnet    = false
 
 [bingx]
 api_key    = ""   # override with BINGX_API_KEY env var
+api_secret = ""
+
+[bitget]
+api_key    = ""   # override with BITGET_API_KEY env var
+api_secret = ""
+passphrase = ""   # override with BITGET_PASSPHRASE env var
+
+[kucoin]
+api_key    = ""   # override with KUCOIN_API_KEY env var
+api_secret = ""
+passphrase = ""   # override with KUCOIN_PASSPHRASE env var
+
+[gate]
+api_key    = ""   # override with GATE_API_KEY env var
 api_secret = ""

@@ -2,6 +2,9 @@ pub mod binance;
 pub mod bybit;
 pub mod mexc;
 pub mod okx;
+pub mod bitget;
+pub mod kucoin;
+pub mod gate;
 
 use base64::Engine;
 use chrono::Utc;

@@ -1,5 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::select;
 use tokio::time::{interval, sleep};
@@ -7,57 +7,50 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::warn;
 
 use crate::tickers::TICKERS;
-use super::{to_dashed, MarketQuote, MultiPairState, MultiPairTick};
+use super::{MarketQuote, MultiPairState};
 
-const OKX_WS: &str = "wss://ws.okx.com:8443/ws/v5/public";
+const BITGET_WS: &str = "wss://ws.bitget.com/v2/ws/public";
 
-pub async fn run_okx_spot(state: MultiPairState) {
-    run_okx(state, false).await;
+pub async fn run_bitget_spot(state: MultiPairState) {
+    run_bitget(state, false).await;
 }
 
-pub async fn run_okx_swap(state: MultiPairState) {
-    run_okx(state, true).await;
+pub async fn run_bitget_futures(state: MultiPairState) {
+    run_bitget(state, true).await;
 }
 
-async fn run_okx(state: MultiPairState, is_swap: bool) {
-    let label = if is_swap { "swap" } else { "spot" };
-    let inst_map: HashMap<String, String> = TICKERS.iter()
-        .map(|&t| {
-            let inst_id = if is_swap {
-                to_dashed(t) + "-SWAP"
-            } else {
-                to_dashed(t)
-            };
-            (inst_id, t.to_string())
-        })
-        .collect();
+async fn run_bitget(state: MultiPairState, is_futures: bool) {
+    let label = if is_futures { "futures" } else { "spot" };
+    let inst_type = if is_futures { "USDT-FUTURES" } else { "SPOT" };
 
-    let args: Vec<serde_json::Value> = inst_map.keys()
-        .map(|id| serde_json::json!({"channel": "tickers", "instId": id}))
+    let sym_set: HashSet<&str> = TICKERS.iter().copied().collect();
+
+    let args: Vec<serde_json::Value> = TICKERS.iter()
+        .map(|&t| serde_json::json!({"instType": inst_type, "channel": "ticker", "instId": t}))
         .collect();
     let sub_msg = serde_json::json!({"op": "subscribe", "args": args}).to_string();
 
     loop {
-        match connect_okx_once(&state, &sub_msg, is_swap, &inst_map).await {
-            Ok(())  => warn!("multi_feed: OKX {} closed",      label),
-            Err(e)  => warn!("multi_feed: OKX {} error: {:#}", label, e),
+        match connect_bitget_once(&state, &sub_msg, is_futures, &sym_set).await {
+            Ok(())  => warn!("multi_feed: Bitget {} closed",      label),
+            Err(e)  => warn!("multi_feed: Bitget {} error: {:#}", label, e),
         }
         sleep(Duration::from_secs(1)).await;
     }
 }
 
-async fn connect_okx_once(
+async fn connect_bitget_once(
     state: &MultiPairState,
     sub_msg: &str,
-    is_swap: bool,
-    inst_map: &HashMap<String, String>,
+    is_futures: bool,
+    sym_set: &HashSet<&str>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(OKX_WS).await?;
+    let (ws, _) = connect_async(BITGET_WS).await?;
     let (mut write, mut read) = ws.split();
 
     write.send(Message::Text(sub_msg.to_string())).await?;
 
-    let mut ping_tick = interval(Duration::from_secs(25));
+    let mut ping_tick = interval(Duration::from_secs(30));
     ping_tick.tick().await; // consume immediate tick
 
     loop {
@@ -75,11 +68,10 @@ async fn connect_okx_once(
                             Ok(v) => v,
                             Err(_) => continue,
                         };
-                        let inst_id = v["arg"]["instId"].as_str().unwrap_or("");
-                        let sym = match inst_map.get(inst_id) {
-                            Some(s) => s.clone(),
-                            None    => continue,
-                        };
+                        let sym = v["arg"]["instId"].as_str().unwrap_or("");
+                        if !sym_set.contains(sym) { continue; }
+                        let sym = sym.to_string();
+
                         let data = match v["data"].as_array().and_then(|a| a.first()) {
                             Some(d) => d,
                             None    => continue,
@@ -88,19 +80,20 @@ async fn connect_okx_once(
                         let ask     = data["askPx"].as_str().and_then(|s| s.parse::<f64>().ok());
                         let bid_qty = data["bidSz"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                         let ask_qty = data["askSz"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+
                         if let (Some(bid), Some(ask)) = (bid, ask) {
                             if bid > 0.0 && ask > 0.0 {
                                 let quote = MarketQuote { bid, ask, bid_qty, ask_qty, updated_at: Instant::now() };
                                 state.entry(sym)
                                     .and_modify(|t| {
-                                        if is_swap { t.perp_okx = Some(quote.clone()); }
-                                        else       { t.spot_okx = Some(quote.clone()); }
+                                        if is_futures { t.perp_bitget = Some(quote.clone()); }
+                                        else          { t.spot_bitget = Some(quote.clone()); }
                                         t.updated_at = Instant::now();
                                     })
                                     .or_insert_with(|| {
                                         let mut t = super::blank_tick();
-                                        if is_swap { t.perp_okx = Some(quote.clone()); }
-                                        else       { t.spot_okx = Some(quote.clone()); }
+                                        if is_futures { t.perp_bitget = Some(quote.clone()); }
+                                        else          { t.spot_bitget = Some(quote.clone()); }
                                         t
                                     });
                             }

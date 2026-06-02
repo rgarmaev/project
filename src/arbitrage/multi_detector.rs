@@ -27,6 +27,12 @@ fn fee_rate(market: &MarketId) -> f64 {
         (Exchange::Okx,     MarketType::Futures) => 0.00050,
         (Exchange::Bingx,   MarketType::Spot)    => 0.00100,
         (Exchange::Bingx,   MarketType::Futures) => 0.00050,
+        (Exchange::Bitget,  MarketType::Spot)    => 0.00100,
+        (Exchange::Bitget,  MarketType::Futures) => 0.00060,
+        (Exchange::Kucoin,  MarketType::Spot)    => 0.00100,
+        (Exchange::Kucoin,  MarketType::Futures) => 0.00060,
+        (Exchange::Gate,    MarketType::Spot)    => 0.00100,
+        (Exchange::Gate,    MarketType::Futures) => 0.00050,
         _                                         => 0.00100,
     }
 }
@@ -89,6 +95,9 @@ enum Field {
     SpotBybit,   PerpBybit,
     SpotOkx,     PerpOkx,
     SpotBingx,   PerpBingx,
+    SpotBitget,  PerpBitget,
+    SpotKucoin,  PerpKucoin,
+    SpotGate,    PerpGate,
 }
 
 impl Field {
@@ -102,6 +111,12 @@ impl Field {
             Self::PerpOkx     => t.perp_okx.as_ref(),
             Self::SpotBingx   => t.spot_bingx.as_ref(),
             Self::PerpBingx   => t.perp_bingx.as_ref(),
+            Self::SpotBitget  => t.spot_bitget.as_ref(),
+            Self::PerpBitget  => t.perp_bitget.as_ref(),
+            Self::SpotKucoin  => t.spot_kucoin.as_ref(),
+            Self::PerpKucoin  => t.perp_kucoin.as_ref(),
+            Self::SpotGate    => t.spot_gate.as_ref(),
+            Self::PerpGate    => t.perp_gate.as_ref(),
         }
     }
 
@@ -115,6 +130,12 @@ impl Field {
             Self::PerpOkx     => MarketId::new(Exchange::Okx,     MarketType::Futures),
             Self::SpotBingx   => MarketId::new(Exchange::Bingx,   MarketType::Spot),
             Self::PerpBingx   => MarketId::new(Exchange::Bingx,   MarketType::Futures),
+            Self::SpotBitget  => MarketId::new(Exchange::Bitget,  MarketType::Spot),
+            Self::PerpBitget  => MarketId::new(Exchange::Bitget,  MarketType::Futures),
+            Self::SpotKucoin  => MarketId::new(Exchange::Kucoin,  MarketType::Spot),
+            Self::PerpKucoin  => MarketId::new(Exchange::Kucoin,  MarketType::Futures),
+            Self::SpotGate    => MarketId::new(Exchange::Gate,    MarketType::Spot),
+            Self::PerpGate    => MarketId::new(Exchange::Gate,    MarketType::Futures),
         }
     }
 
@@ -128,15 +149,24 @@ impl Field {
             Self::PerpOkx     => 5,
             Self::SpotBingx   => 6,
             Self::PerpBingx   => 7,
+            Self::SpotBitget  => 8,
+            Self::PerpBitget  => 9,
+            Self::SpotKucoin  => 10,
+            Self::PerpKucoin  => 11,
+            Self::SpotGate    => 12,
+            Self::PerpGate    => 13,
         }
     }
 }
 
-const FIELDS: [Field; 8] = [
+const FIELDS: [Field; 14] = [
     Field::SpotBinance, Field::PerpBinance,
     Field::SpotBybit,   Field::PerpBybit,
     Field::SpotOkx,     Field::PerpOkx,
     Field::SpotBingx,   Field::PerpBingx,
+    Field::SpotBitget,  Field::PerpBitget,
+    Field::SpotKucoin,  Field::PerpKucoin,
+    Field::SpotGate,    Field::PerpGate,
 ];
 
 // ── Detector ──────────────────────────────────────────────────────────────────
@@ -169,7 +199,7 @@ impl MultiPairDetector {
 
     pub async fn run(self: Arc<Self>) {
         info!(
-            "MultiPairDetector started — 8 markets × 56 combos per pair (min_spread={:.3}%  γ={}  τ={})",
+            "MultiPairDetector started — 14 markets × 182 combos per pair (min_spread={:.3}%  γ={}  τ={})",
             to_f64(self.config.trading.min_spread_pct) * 100.0,
             self.config.trading.gamma,
             self.config.trading.tau,

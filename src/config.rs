@@ -13,6 +13,12 @@ pub struct Config {
     pub okx: OkxConfig,
     #[serde(default)]
     pub bingx: BingxConfig,
+    #[serde(default)]
+    pub bitget: BitgetConfig,
+    #[serde(default)]
+    pub kucoin: KucoinConfig,
+    #[serde(default)]
+    pub gate: GateConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -82,6 +88,34 @@ pub struct BingxConfig {
     pub api_secret: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct BitgetConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub api_secret: String,
+    #[serde(default)]
+    pub passphrase: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct KucoinConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub api_secret: String,
+    #[serde(default)]
+    pub passphrase: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct GateConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub api_secret: String,
+}
+
 impl Config {
     pub fn load() -> Result<Self> {
         let contents = std::fs::read_to_string("config.toml")
@@ -98,8 +132,16 @@ impl Config {
         if let Ok(v) = std::env::var("OKX_API_KEY")        { cfg.okx.api_key        = v; }
         if let Ok(v) = std::env::var("OKX_API_SECRET")     { cfg.okx.api_secret     = v; }
         if let Ok(v) = std::env::var("OKX_PASSPHRASE")     { cfg.okx.passphrase     = v; }
-        if let Ok(v) = std::env::var("BINGX_API_KEY")      { cfg.bingx.api_key      = v; }
-        if let Ok(v) = std::env::var("BINGX_API_SECRET")   { cfg.bingx.api_secret   = v; }
+        if let Ok(v) = std::env::var("BINGX_API_KEY")       { cfg.bingx.api_key       = v; }
+        if let Ok(v) = std::env::var("BINGX_API_SECRET")    { cfg.bingx.api_secret    = v; }
+        if let Ok(v) = std::env::var("BITGET_API_KEY")      { cfg.bitget.api_key      = v; }
+        if let Ok(v) = std::env::var("BITGET_API_SECRET")   { cfg.bitget.api_secret   = v; }
+        if let Ok(v) = std::env::var("BITGET_PASSPHRASE")   { cfg.bitget.passphrase   = v; }
+        if let Ok(v) = std::env::var("KUCOIN_API_KEY")      { cfg.kucoin.api_key      = v; }
+        if let Ok(v) = std::env::var("KUCOIN_API_SECRET")   { cfg.kucoin.api_secret   = v; }
+        if let Ok(v) = std::env::var("KUCOIN_PASSPHRASE")   { cfg.kucoin.passphrase   = v; }
+        if let Ok(v) = std::env::var("GATE_API_KEY")        { cfg.gate.api_key        = v; }
+        if let Ok(v) = std::env::var("GATE_API_SECRET")     { cfg.gate.api_secret     = v; }
 
         Ok(cfg)
     }
