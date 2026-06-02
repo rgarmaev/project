@@ -10,6 +10,14 @@ pub struct ExchangeSettings {
     pub testnet: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct OkxSettings {
+    pub api_key: String,
+    pub api_secret: String,
+    pub passphrase: String,
+    pub testnet: bool,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ConfigPayload {
     pub paper_trading: bool,
@@ -19,6 +27,7 @@ pub struct ConfigPayload {
     pub binance: ExchangeSettings,
     pub bybit: ExchangeSettings,
     pub mexc: ExchangeSettings,
+    pub okx: OkxSettings,
 }
 
 pub async fn get_config(
@@ -34,6 +43,9 @@ pub async fn get_config(
     let bybit_secret   = env_vars.get("BYBIT_API_SECRET").cloned().unwrap_or_default();
     let mexc_key       = env_vars.get("MEXC_API_KEY").cloned().unwrap_or_default();
     let mexc_secret    = env_vars.get("MEXC_API_SECRET").cloned().unwrap_or_default();
+    let okx_key        = env_vars.get("OKX_API_KEY").cloned().unwrap_or_default();
+    let okx_secret     = env_vars.get("OKX_API_SECRET").cloned().unwrap_or_default();
+    let okx_pass       = env_vars.get("OKX_PASSPHRASE").cloned().unwrap_or_default();
 
     // Read config.toml for trading params
     let (paper, size, spread, bin_testnet, bybit_testnet, symbol) = read_config_toml();
@@ -56,6 +68,12 @@ pub async fn get_config(
         mexc: ExchangeSettings {
             api_key:    mask(&mexc_key),
             api_secret: mask(&mexc_secret),
+            testnet:    false,
+        },
+        okx: OkxSettings {
+            api_key:    mask(&okx_key),
+            api_secret: mask(&okx_secret),
+            passphrase: mask(&okx_pass),
             testnet:    false,
         },
     })
@@ -87,11 +105,22 @@ pub async fn post_config(
         existing.get("MEXC_API_SECRET").cloned().unwrap_or_default()
     } else { payload.mexc.api_secret.clone() };
 
+    let okx_key = if payload.okx.api_key.contains('*') {
+        existing.get("OKX_API_KEY").cloned().unwrap_or_default()
+    } else { payload.okx.api_key.clone() };
+    let okx_secret = if payload.okx.api_secret.contains('*') {
+        existing.get("OKX_API_SECRET").cloned().unwrap_or_default()
+    } else { payload.okx.api_secret.clone() };
+    let okx_pass = if payload.okx.passphrase.contains('*') {
+        existing.get("OKX_PASSPHRASE").cloned().unwrap_or_default()
+    } else { payload.okx.passphrase.clone() };
+
     let env_content = format!(
-        "BINANCE_API_KEY={}\nBINANCE_API_SECRET={}\n\nBYBIT_API_KEY={}\nBYBIT_API_SECRET={}\n\nMEXC_API_KEY={}\nMEXC_API_SECRET={}\n\nRUST_LOG=sol_arb=info\n",
+        "BINANCE_API_KEY={}\nBINANCE_API_SECRET={}\n\nBYBIT_API_KEY={}\nBYBIT_API_SECRET={}\n\nMEXC_API_KEY={}\nMEXC_API_SECRET={}\n\nOKX_API_KEY={}\nOKX_API_SECRET={}\nOKX_PASSPHRASE={}\n\nRUST_LOG=sol_arb=info\n",
         binance_key, binance_secret,
         bybit_key, bybit_secret,
         mexc_key, mexc_secret,
+        okx_key, okx_secret, okx_pass,
     );
 
     if let Err(e) = std::fs::write(".env", &env_content) {

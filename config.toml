@@ -44,3 +44,9 @@ testnet    = false
 api_key    = ""   # override with MEXC_API_KEY env var
 api_secret = ""
 testnet    = false
+
+[okx]
+api_key    = ""   # override with OKX_API_KEY env var
+api_secret = ""
+passphrase = ""   # override with OKX_PASSPHRASE env var
+testnet    = false

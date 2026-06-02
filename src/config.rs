@@ -9,6 +9,8 @@ pub struct Config {
     pub binance: ExchangeConfig,
     pub bybit: ExchangeConfig,
     pub mexc: ExchangeConfig,
+    #[serde(default)]
+    pub okx: OkxConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -58,6 +60,18 @@ pub struct ExchangeConfig {
     pub testnet: bool,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct OkxConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub api_secret: String,
+    #[serde(default)]
+    pub passphrase: String,
+    #[serde(default)]
+    pub testnet: bool,
+}
+
 impl Config {
     pub fn load() -> Result<Self> {
         let contents = std::fs::read_to_string("config.toml")
@@ -71,6 +85,9 @@ impl Config {
         if let Ok(v) = std::env::var("BYBIT_API_SECRET")   { cfg.bybit.api_secret   = v; }
         if let Ok(v) = std::env::var("MEXC_API_KEY")       { cfg.mexc.api_key       = v; }
         if let Ok(v) = std::env::var("MEXC_API_SECRET")    { cfg.mexc.api_secret    = v; }
+        if let Ok(v) = std::env::var("OKX_API_KEY")        { cfg.okx.api_key        = v; }
+        if let Ok(v) = std::env::var("OKX_API_SECRET")     { cfg.okx.api_secret     = v; }
+        if let Ok(v) = std::env::var("OKX_PASSPHRASE")     { cfg.okx.passphrase     = v; }
 
         Ok(cfg)
     }

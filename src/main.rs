@@ -20,7 +20,7 @@ use tracing_subscriber::EnvFilter;
 
 use arbitrage::{multi_detector::MultiPairDetector, executor::OrderExecutor};
 use dashboard::state::DashboardState;
-use exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector};
+use exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector, okx::OkxConnector};
 use market_scanner::MarketScanner;
 use metrics::MetricsCollector;
 use orderbook::PriceState;
@@ -52,6 +52,7 @@ async fn main() -> Result<()> {
     let binance = Arc::new(BinanceConnector::new(config.clone()));
     let bybit   = Arc::new(BybitConnector::new(config.clone()));
     let mexc    = Arc::new(MexcConnector::new(config.clone()));
+    let okx     = Arc::new(OkxConnector::new(config.clone()));
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
     let metrics = Arc::new(MetricsCollector::new());
     let scanner = MarketScanner::new();
@@ -77,6 +78,7 @@ async fn main() -> Result<()> {
         binance.clone(),
         bybit.clone(),
         mexc.clone(),
+        okx.clone(),
         risk.clone(),
         metrics.clone(),
         dash_state.clone(),

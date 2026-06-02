@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     dashboard::state::DashboardState,
-    exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector},
+    exchanges::{binance::BinanceConnector, bybit::BybitConnector, mexc::MexcConnector, okx::OkxConnector},
     metrics::MetricsCollector,
     orderbook::SharedPriceState,
     risk::RiskManager,
@@ -20,6 +20,7 @@ pub struct OrderExecutor {
     binance: Arc<BinanceConnector>,
     bybit: Arc<BybitConnector>,
     mexc: Arc<MexcConnector>,
+    okx: Arc<OkxConnector>,
     risk: Arc<RiskManager>,
     metrics: Arc<MetricsCollector>,
     dashboard: Arc<DashboardState>,
@@ -32,11 +33,12 @@ impl OrderExecutor {
         binance: Arc<BinanceConnector>,
         bybit: Arc<BybitConnector>,
         mexc: Arc<MexcConnector>,
+        okx: Arc<OkxConnector>,
         risk: Arc<RiskManager>,
         metrics: Arc<MetricsCollector>,
         dashboard: Arc<DashboardState>,
     ) -> Self {
-        Self { config, price_state, binance, bybit, mexc, risk, metrics, dashboard }
+        Self { config, price_state, binance, bybit, mexc, okx, risk, metrics, dashboard }
     }
 
     pub async fn run(self: Arc<Self>, mut rx: mpsc::Receiver<ArbitrageSignal>) {
@@ -130,7 +132,7 @@ impl OrderExecutor {
             Exchange::Binance => self.binance.place_order(symbol, market, side, qty, ps).await,
             Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, ps).await,
             Exchange::Mexc    => self.mexc.place_order(symbol, side, qty, ps).await,
-            Exchange::Okx     => anyhow::bail!("OKX order execution not implemented"),
+            Exchange::Okx     => self.okx.place_order(symbol, market, side, qty, ps).await,
             Exchange::Bingx   => anyhow::bail!("BingX order execution not implemented"),
         }
     }

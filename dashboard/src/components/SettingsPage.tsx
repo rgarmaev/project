@@ -6,6 +6,13 @@ interface ExchangeSettings {
   testnet: boolean
 }
 
+interface OkxSettings {
+  api_key: string
+  api_secret: string
+  passphrase: string
+  testnet: boolean
+}
+
 interface Config {
   paper_trading: boolean
   trade_size_usdt: number
@@ -13,6 +20,7 @@ interface Config {
   binance: ExchangeSettings
   bybit: ExchangeSettings
   mexc: ExchangeSettings
+  okx: OkxSettings
 }
 
 const EMPTY_CONFIG: Config = {
@@ -22,6 +30,7 @@ const EMPTY_CONFIG: Config = {
   binance: { api_key: '', api_secret: '', testnet: false },
   bybit:   { api_key: '', api_secret: '', testnet: false },
   mexc:    { api_key: '', api_secret: '', testnet: false },
+  okx:     { api_key: '', api_secret: '', passphrase: '', testnet: false },
 }
 
 const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: string }> = {
@@ -31,7 +40,6 @@ const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: st
 }
 
 const READONLY_EXCHANGES = [
-  { id: 'okx',   name: 'OKX',   color: '#00d4ff', status: 'Мониторинг (spot + swap)', note: 'Исполнение ордеров не реализовано' },
   { id: 'bingx', name: 'BingX', color: '#00d4aa', status: 'Мониторинг (spot + swap)', note: 'Исполнение ордеров не реализовано' },
 ]
 
@@ -125,6 +133,32 @@ function NumberField({ label, value, onChange, step, note }: {
   )
 }
 
+function OkxBlock({ cfg, onChange }: { cfg: OkxSettings; onChange: (v: OkxSettings) => void }) {
+  const [showKey, setShowKey]   = useState(false)
+  const [showSec, setShowSec]   = useState(false)
+  const [showPass, setShowPass] = useState(false)
+
+  return (
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: '#00d4ff', fontWeight: 600, fontSize: 13 }}>OKX</span>
+        <a href="https://www.okx.com/account/my-api" target="_blank" rel="noreferrer"
+          style={{ color: '#444', fontSize: 11, textDecoration: 'none' }}>
+          Get API keys ↗
+        </a>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Field label="API Key"    value={cfg.api_key}    show={showKey}  onToggle={() => setShowKey(v => !v)}  onChange={v => onChange({ ...cfg, api_key: v })} />
+        <Field label="API Secret" value={cfg.api_secret} show={showSec}  onToggle={() => setShowSec(v => !v)}  onChange={v => onChange({ ...cfg, api_secret: v })} />
+        <Field label="Passphrase" value={cfg.passphrase} show={showPass} onToggle={() => setShowPass(v => !v)} onChange={v => onChange({ ...cfg, passphrase: v })} />
+      </div>
+      <div style={{ marginTop: 10, color: '#444', fontSize: 11 }}>
+        Spot и Swap. Создайте ключ с разрешением Trade на okx.com.
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   const [config, setConfig] = useState<Config>(EMPTY_CONFIG)
   const [status, setStatus] = useState<string | null>(null)
@@ -196,6 +230,9 @@ export function SettingsPage() {
         <ExchangeBlock key={id} id={id} cfg={config[id]}
           onChange={v => setConfig(c => ({ ...c, [id]: v }))} />
       ))}
+
+      {/* OKX block */}
+      <OkxBlock cfg={config.okx} onChange={v => setConfig(c => ({ ...c, okx: v }))} />
 
       {/* Read-only exchange blocks (monitoring only) */}
       {READONLY_EXCHANGES.map(ex => (
