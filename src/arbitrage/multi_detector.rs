@@ -5,6 +5,7 @@ use crate::{
 };
 use chrono::Utc;
 use dashmap::DashMap;
+use parking_lot::Mutex;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -141,11 +142,13 @@ const FIELDS: [Field; 8] = [
 // ── Detector ──────────────────────────────────────────────────────────────────
 
 pub struct MultiPairDetector {
-    config:    Arc<Config>,
-    state:     MultiPairState,
-    signal_tx: mpsc::Sender<ArbitrageSignal>,
-    vol_map:   DashMap<(String, u8), F64Ewma>,
-    last_mids: DashMap<(String, u8), f64>,
+    config:       Arc<Config>,
+    state:        MultiPairState,
+    signal_tx:    mpsc::Sender<ArbitrageSignal>,
+    vol_map:      DashMap<(String, u8), F64Ewma>,
+    last_mids:    DashMap<(String, u8), f64>,
+    // per-symbol cooldown: at most one signal per symbol per 2s
+    signal_times: Mutex<HashMap<String, Instant>>,
 }
 
 impl MultiPairDetector {
@@ -158,8 +161,9 @@ impl MultiPairDetector {
             config,
             state,
             signal_tx,
-            vol_map:   DashMap::new(),
-            last_mids: DashMap::new(),
+            vol_map:      DashMap::new(),
+            last_mids:    DashMap::new(),
+            signal_times: Mutex::new(HashMap::new()),
         }
     }
 
@@ -211,7 +215,16 @@ impl MultiPairDetector {
             let tick = entry.value();
             if tick.updated_at.elapsed() > stale { continue; }
 
-            for &buy_field in &FIELDS {
+            // Per-symbol cooldown: skip if fired within last 2s
+            if self.signal_times.lock()
+                .get(sym.as_str())
+                .map(|t| t.elapsed() < Duration::from_secs(2))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+
+            'routes: for &buy_field in &FIELDS {
                 for &sell_field in &FIELDS {
                     if buy_field == sell_field { continue; }
                     if let (Some(buy_q), Some(sell_q)) = (buy_field.get(tick), sell_field.get(tick)) {
@@ -225,9 +238,11 @@ impl MultiPairDetector {
                             sell_field.market_id(), sell_q,
                             avg_var,
                         ) {
+                            self.signal_times.lock().insert(sym.to_string(), Instant::now());
                             if self.signal_tx.try_send(signal).is_err() {
-                                warn!("Signal channel full — dropping");
+                                debug!("Signal channel full — dropping");
                             }
+                            break 'routes;
                         }
                     }
                 }
