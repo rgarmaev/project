@@ -11,6 +11,8 @@ pub struct Config {
     pub mexc: ExchangeConfig,
     #[serde(default)]
     pub okx: OkxConfig,
+    #[serde(default)]
+    pub bingx: BingxConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -72,6 +74,14 @@ pub struct OkxConfig {
     pub testnet: bool,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct BingxConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub api_secret: String,
+}
+
 impl Config {
     pub fn load() -> Result<Self> {
         let contents = std::fs::read_to_string("config.toml")
@@ -88,6 +98,8 @@ impl Config {
         if let Ok(v) = std::env::var("OKX_API_KEY")        { cfg.okx.api_key        = v; }
         if let Ok(v) = std::env::var("OKX_API_SECRET")     { cfg.okx.api_secret     = v; }
         if let Ok(v) = std::env::var("OKX_PASSPHRASE")     { cfg.okx.passphrase     = v; }
+        if let Ok(v) = std::env::var("BINGX_API_KEY")      { cfg.bingx.api_key      = v; }
+        if let Ok(v) = std::env::var("BINGX_API_SECRET")   { cfg.bingx.api_secret   = v; }
 
         Ok(cfg)
     }

@@ -13,6 +13,11 @@ interface OkxSettings {
   testnet: boolean
 }
 
+interface BingxSettings {
+  api_key: string
+  api_secret: string
+}
+
 interface Config {
   paper_trading: boolean
   trade_size_usdt: number
@@ -21,6 +26,7 @@ interface Config {
   bybit: ExchangeSettings
   mexc: ExchangeSettings
   okx: OkxSettings
+  bingx: BingxSettings
 }
 
 const EMPTY_CONFIG: Config = {
@@ -31,6 +37,7 @@ const EMPTY_CONFIG: Config = {
   bybit:   { api_key: '', api_secret: '', testnet: false },
   mexc:    { api_key: '', api_secret: '', testnet: false },
   okx:     { api_key: '', api_secret: '', passphrase: '', testnet: false },
+  bingx:   { api_key: '', api_secret: '' },
 }
 
 const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: string }> = {
@@ -39,9 +46,7 @@ const EXCHANGE_LABELS: Record<string, { name: string; color: string; docsUrl: st
   mexc:    { name: 'MEXC',    color: '#0768f4', docsUrl: 'https://www.mexc.com/user/openapi' },
 }
 
-const READONLY_EXCHANGES = [
-  { id: 'bingx', name: 'BingX', color: '#00d4aa', status: 'Мониторинг (spot + swap)', note: 'Исполнение ордеров не реализовано' },
-]
+const READONLY_EXCHANGES: { id: string; name: string; color: string; status: string; note: string }[] = []
 
 function ExchangeBlock({
   id, cfg, onChange,
@@ -129,6 +134,30 @@ function NumberField({ label, value, onChange, step, note }: {
         }}
       />
       {note && <div style={{ color: '#444', fontSize: 10, marginTop: 3 }}>{note}</div>}
+    </div>
+  )
+}
+
+function BingxBlock({ cfg, onChange }: { cfg: BingxSettings; onChange: (v: BingxSettings) => void }) {
+  const [showKey, setShowKey]   = useState(false)
+  const [showSec, setShowSec]   = useState(false)
+
+  return (
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 20, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: '#00d4aa', fontWeight: 600, fontSize: 13 }}>BingX</span>
+        <a href="https://bingx.com/en/account/api/" target="_blank" rel="noreferrer"
+          style={{ color: '#444', fontSize: 11, textDecoration: 'none' }}>
+          Get API keys ↗
+        </a>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Field label="API Key"    value={cfg.api_key}    show={showKey} onToggle={() => setShowKey(v => !v)}  onChange={v => onChange({ ...cfg, api_key: v })} />
+        <Field label="API Secret" value={cfg.api_secret} show={showSec} onToggle={() => setShowSec(v => !v)}  onChange={v => onChange({ ...cfg, api_secret: v })} />
+      </div>
+      <div style={{ marginTop: 10, color: '#444', fontSize: 11 }}>
+        Spot и Swap. Исполнение ордеров в разработке — ключи сохранятся для будущей версии.
+      </div>
     </div>
   )
 }
@@ -233,6 +262,9 @@ export function SettingsPage() {
 
       {/* OKX block */}
       <OkxBlock cfg={config.okx} onChange={v => setConfig(c => ({ ...c, okx: v }))} />
+
+      {/* BingX block */}
+      <BingxBlock cfg={config.bingx} onChange={v => setConfig(c => ({ ...c, bingx: v }))} />
 
       {/* Read-only exchange blocks (monitoring only) */}
       {READONLY_EXCHANGES.map(ex => (
