@@ -70,7 +70,7 @@ export default function App() {
             <PnlChart recentTrades={trades} />
             <ChartsRow prices={prices} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
             <TopOpportunities data={opportunities} spotData={spotOpportunities} />
             <TradesFeed trades={trades} />
           </div>

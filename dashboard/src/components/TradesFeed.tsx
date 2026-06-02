@@ -10,11 +10,11 @@ function formatTime(iso: string) {
 
 export function TradesFeed({ trades }: Props) {
   return (
-    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 16, height: '100%' }}>
+    <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 16 }}>
       <div style={{ color: '#666', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
         Recent Trades
       </div>
-      <div style={{ overflowY: 'auto', maxHeight: 340 }}>
+      <div style={{ overflowY: 'auto', maxHeight: 480 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, background: '#111' }}>
             <tr>
