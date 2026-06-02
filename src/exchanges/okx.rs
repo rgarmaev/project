@@ -53,10 +53,11 @@ impl OkxConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
+        price_hint: Decimal,
         price_state: &SharedPriceState,
     ) -> Result<OrderResult> {
         if self.config.trading.paper_trading {
-            return Ok(self.paper_fill(market, side, quantity, price_state));
+            return Ok(self.paper_fill(market, side, quantity, price_hint));
         }
 
         if self.config.okx.api_key.is_empty() {
@@ -172,15 +173,8 @@ impl OkxConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
-        _price_state: &SharedPriceState,
+        price_hint: Decimal,
     ) -> OrderResult {
-        // Recover implied price: quantity = trade_size_usdt / price → price = trade_size_usdt / quantity
-        let price = if quantity > dec!(0) {
-            self.config.trading.trade_size_usdt / quantity
-        } else {
-            dec!(0)
-        };
-        let order_id = Uuid::new_v4();
         let fee_rate = match market {
             MarketType::Spot    => dec!(0.00080),
             MarketType::Futures => dec!(0.00050),
@@ -188,11 +182,11 @@ impl OkxConnector {
         OrderResult {
             exchange:    Exchange::Okx,
             market_type: market,
-            order_id:    order_id.to_string(),
+            order_id:    Uuid::new_v4().to_string(),
             side,
             filled_qty:  quantity,
-            avg_price:   price,
-            fee_usdt:    quantity * price * fee_rate,
+            avg_price:   price_hint,
+            fee_usdt:    quantity * price_hint * fee_rate,
             timestamp:   Utc::now(),
         }
     }

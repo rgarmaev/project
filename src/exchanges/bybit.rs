@@ -166,10 +166,11 @@ impl BybitConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
+        price_hint: Decimal,
         price_state: &SharedPriceState,
     ) -> Result<OrderResult> {
         if self.config.trading.paper_trading {
-            return Ok(self.paper_fill(market, side, quantity, price_state));
+            return Ok(self.paper_fill(market, side, quantity, price_hint));
         }
 
         let ts = now_ms();
@@ -228,9 +229,8 @@ impl BybitConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
-        _price_state: &SharedPriceState,
+        price_hint: Decimal,
     ) -> OrderResult {
-        let price = if quantity > dec!(0) { self.config.trading.trade_size_usdt / quantity } else { dec!(0) };
         let fee_rate = if market == MarketType::Futures { dec!(0.00055) } else { dec!(0.001) };
         OrderResult {
             exchange:    Exchange::Bybit,
@@ -238,8 +238,8 @@ impl BybitConnector {
             order_id:    Uuid::new_v4().to_string(),
             side,
             filled_qty:  quantity,
-            avg_price:   price,
-            fee_usdt:    quantity * price * fee_rate,
+            avg_price:   price_hint,
+            fee_usdt:    quantity * price_hint * fee_rate,
             timestamp:   Utc::now(),
         }
     }

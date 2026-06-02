@@ -73,12 +73,15 @@ impl OrderExecutor {
     }
 
     async fn execute(&self, signal: &ArbitrageSignal) -> Result<CompletedTrade> {
-        let qty = signal.quantity;
-        let ps  = &self.price_state;
+        let qty  = signal.quantity;
+        let ps   = &self.price_state;
+        // Pass signal prices so paper_fill uses the actual bid/ask, not an implied price
+        let buy_price  = signal.buy_ask;
+        let sell_price = signal.sell_bid;
 
         let (buy_res, sell_res) = tokio::join!(
-            self.place(signal.buy_market.exchange,  &signal.symbol, signal.buy_market.market_type,  Side::Buy,  qty, ps),
-            self.place(signal.sell_market.exchange, &signal.symbol, signal.sell_market.market_type, Side::Sell, qty, ps),
+            self.place(signal.buy_market.exchange,  &signal.symbol, signal.buy_market.market_type,  Side::Buy,  qty, buy_price,  ps),
+            self.place(signal.sell_market.exchange, &signal.symbol, signal.sell_market.market_type, Side::Sell, qty, sell_price, ps),
         );
 
         let buy_order  = buy_res?;
@@ -126,13 +129,14 @@ impl OrderExecutor {
         market: MarketType,
         side: Side,
         qty: rust_decimal::Decimal,
+        price_hint: rust_decimal::Decimal,
         ps: &SharedPriceState,
     ) -> Result<crate::types::OrderResult> {
         match exchange {
-            Exchange::Binance => self.binance.place_order(symbol, market, side, qty, ps).await,
-            Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, ps).await,
+            Exchange::Binance => self.binance.place_order(symbol, market, side, qty, price_hint, ps).await,
+            Exchange::Bybit   => self.bybit.place_order(symbol, market, side, qty, price_hint, ps).await,
             Exchange::Mexc    => self.mexc.place_order(symbol, side, qty, ps).await,
-            Exchange::Okx     => self.okx.place_order(symbol, market, side, qty, ps).await,
+            Exchange::Okx     => self.okx.place_order(symbol, market, side, qty, price_hint, ps).await,
             Exchange::Bingx   => anyhow::bail!("BingX order execution not implemented"),
         }
     }

@@ -263,6 +263,10 @@ impl MultiPairDetector {
         let sell_bid = sell_q.bid;
         if buy_ask <= 0.0 || sell_bid <= 0.0 { return None; }
 
+        // Sanity: prices >2x apart = different contract units (e.g. OKX swap multiplier vs spot)
+        let ratio = sell_bid / buy_ask;
+        if ratio > 2.0 || ratio < 0.5 { return None; }
+
         // ── 1. Microprice ─────────────────────────────────────────────────────
         let buy_mp  = microprice(buy_q.bid,  buy_q.bid_qty,  buy_q.ask,  buy_q.ask_qty)
             .unwrap_or((buy_q.bid  + buy_q.ask)  / 2.0);
