@@ -178,22 +178,15 @@ impl BinanceConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
-        price_state: &SharedPriceState,
+        _price_state: &SharedPriceState,
     ) -> OrderResult {
-        let mid = MarketId::new(Exchange::Binance, market);
-        let base_price = price_state.get(&mid)
-            .map(|t| match side { Side::Buy => t.ask_price, Side::Sell => t.bid_price })
-            .unwrap_or(dec!(150));
-        let order_id = Uuid::new_v4();
-        // ±1 bp tick noise — realistic for limit order at quoted price
-        let bits = order_id.as_u128();
-        let total_bp = ((bits % 3) as i64 - 1) as i32;
-        let price = base_price * (dec!(1) + Decimal::from(total_bp) / dec!(10000));
+        // quantity = trade_size_usdt / signal_price → implied price is accurate for any pair
+        let price = if quantity > dec!(0) { self.config.trading.trade_size_usdt / quantity } else { dec!(0) };
         let fee_rate = if market == MarketType::Futures { dec!(0.00050) } else { dec!(0.00100) };
         OrderResult {
             exchange:    Exchange::Binance,
             market_type: market,
-            order_id:    order_id.to_string(),
+            order_id:    Uuid::new_v4().to_string(),
             side,
             filled_qty:  quantity,
             avg_price:   price,

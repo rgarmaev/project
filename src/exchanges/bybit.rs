@@ -228,21 +228,14 @@ impl BybitConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
-        price_state: &SharedPriceState,
+        _price_state: &SharedPriceState,
     ) -> OrderResult {
-        let mid = MarketId::new(Exchange::Bybit, market);
-        let base_price = price_state.get(&mid)
-            .map(|t| match side { Side::Buy => t.ask_price, Side::Sell => t.bid_price })
-            .unwrap_or(dec!(150));
-        let order_id = Uuid::new_v4();
-        let bits = order_id.as_u128();
-        let total_bp = ((bits % 3) as i64 - 1) as i32;
-        let price = base_price * (dec!(1) + Decimal::from(total_bp) / dec!(10000));
+        let price = if quantity > dec!(0) { self.config.trading.trade_size_usdt / quantity } else { dec!(0) };
         let fee_rate = if market == MarketType::Futures { dec!(0.00055) } else { dec!(0.001) };
         OrderResult {
             exchange:    Exchange::Bybit,
             market_type: market,
-            order_id:    order_id.to_string(),
+            order_id:    Uuid::new_v4().to_string(),
             side,
             filled_qty:  quantity,
             avg_price:   price,

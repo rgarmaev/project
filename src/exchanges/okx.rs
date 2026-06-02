@@ -14,7 +14,7 @@ use crate::{
     config::Config,
     exchanges::sign_hmac_sha256_b64,
     orderbook::SharedPriceState,
-    types::{Exchange, MarketId, MarketType, OrderResult, Side},
+    types::{Exchange, MarketType, OrderResult, Side},
 };
 
 const BASE_URL: &str = "https://www.okx.com";
@@ -172,17 +172,15 @@ impl OkxConnector {
         market: MarketType,
         side: Side,
         quantity: Decimal,
-        price_state: &SharedPriceState,
+        _price_state: &SharedPriceState,
     ) -> OrderResult {
-        // OKX not in price_state; use Binance spot as proxy
-        let proxy = MarketId::new(Exchange::Binance, MarketType::Spot);
-        let base_price = price_state.get(&proxy)
-            .map(|t| match side { Side::Buy => t.ask_price, Side::Sell => t.bid_price })
-            .unwrap_or(dec!(0));
+        // Recover implied price: quantity = trade_size_usdt / price → price = trade_size_usdt / quantity
+        let price = if quantity > dec!(0) {
+            self.config.trading.trade_size_usdt / quantity
+        } else {
+            dec!(0)
+        };
         let order_id = Uuid::new_v4();
-        let bits     = order_id.as_u128();
-        let bp       = ((bits % 3) as i64 - 1) as i32;
-        let price    = base_price * (dec!(1) + Decimal::from(bp) / dec!(10000));
         let fee_rate = match market {
             MarketType::Spot    => dec!(0.00080),
             MarketType::Futures => dec!(0.00050),
