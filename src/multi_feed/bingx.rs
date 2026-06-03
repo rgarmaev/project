@@ -1,7 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::warn;
 
@@ -40,7 +40,8 @@ async fn connect_bingx_once(
     is_swap: bool,
     sym_map: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(url).await?;
+    let (ws, _) = timeout(Duration::from_secs(10), connect_async(url)).await
+        .map_err(|_| anyhow::anyhow!("BingX WS connect timeout"))??;
     let (mut write, mut read) = ws.split();
 
     for (idx, ticker) in TICKERS.iter().enumerate() {

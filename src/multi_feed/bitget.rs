@@ -2,7 +2,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::select;
-use tokio::time::{interval, sleep};
+use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::warn;
 
@@ -25,30 +25,36 @@ async fn run_bitget(state: MultiPairState, is_futures: bool) {
 
     let sym_set: HashSet<&str> = TICKERS.iter().copied().collect();
 
-    let args: Vec<serde_json::Value> = TICKERS.iter()
+    // Bitget allows max 10 args per subscribe message
+    let all_args: Vec<serde_json::Value> = TICKERS.iter()
         .map(|&t| serde_json::json!({"instType": inst_type, "channel": "ticker", "instId": t}))
         .collect();
-    let sub_msg = serde_json::json!({"op": "subscribe", "args": args}).to_string();
+    let sub_msgs: Vec<String> = all_args.chunks(10)
+        .map(|chunk| serde_json::json!({"op": "subscribe", "args": chunk}).to_string())
+        .collect();
 
     loop {
-        match connect_bitget_once(&state, &sub_msg, is_futures, &sym_set).await {
+        match connect_bitget_once(&state, &sub_msgs, is_futures, &sym_set).await {
             Ok(())  => warn!("multi_feed: Bitget {} closed",      label),
             Err(e)  => warn!("multi_feed: Bitget {} error: {:#}", label, e),
         }
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(5)).await;
     }
 }
 
 async fn connect_bitget_once(
     state: &MultiPairState,
-    sub_msg: &str,
+    sub_msgs: &[String],
     is_futures: bool,
     sym_set: &HashSet<&str>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(BITGET_WS).await?;
+    let (ws, _) = timeout(Duration::from_secs(10), connect_async(BITGET_WS)).await
+        .map_err(|_| anyhow::anyhow!("Bitget WS connect timeout"))??;
     let (mut write, mut read) = ws.split();
 
-    write.send(Message::Text(sub_msg.to_string())).await?;
+    for msg in sub_msgs {
+        write.send(Message::Text(msg.clone())).await?;
+    }
 
     let mut ping_tick = interval(Duration::from_secs(30));
     ping_tick.tick().await; // consume immediate tick

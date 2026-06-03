@@ -3,7 +3,7 @@ use reqwest::Client;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::select;
-use tokio::time::{interval, sleep};
+use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::warn;
 use uuid::Uuid;
@@ -57,7 +57,9 @@ async fn run_kucoin(state: MultiPairState, is_futures: bool) {
 
 async fn get_ws_token(is_futures: bool) -> anyhow::Result<(String, String)> {
     let url = if is_futures { FUTURES_TOKEN_URL } else { SPOT_TOKEN_URL };
-    let resp: serde_json::Value = Client::new()
+    let resp: serde_json::Value = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?
         .post(url)
         .header("Content-Type", "application/json")
         .body("{}")
@@ -85,38 +87,31 @@ async fn connect_kucoin_once(
     is_futures: bool,
     sym_map: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(url).await?;
+    let (ws, _) = timeout(Duration::from_secs(10), connect_async(url)).await
+        .map_err(|_| anyhow::anyhow!("KuCoin WS connect timeout"))??;
     let (mut write, mut read) = ws.split();
 
-    // Build subscribe topic from sym_map keys (already in correct format)
-    let symbols_str = sym_map.keys().cloned().collect::<Vec<_>>().join(",");
-    let topic = if is_futures {
-        format!("/contractMarket/ticker:{}", symbols_str)
-    } else {
-        format!("/market/ticker:{}", symbols_str)
-    };
-
-    let sub_msg = serde_json::json!({
-        "id": Uuid::new_v4().to_string(),
-        "type": "subscribe",
-        "topic": topic,
-        "privateChannel": false,
-        "response": true
-    })
-    .to_string();
-
-    write.send(Message::Text(sub_msg)).await?;
+    // KuCoin topic string limit — send in batches of 50 symbols
+    let symbols: Vec<String> = sym_map.keys().cloned().collect();
+    let prefix = if is_futures { "/contractMarket/ticker" } else { "/market/ticker" };
+    for chunk in symbols.chunks(50) {
+        let topic = format!("{}:{}", prefix, chunk.join(","));
+        let sub_msg = serde_json::json!({
+            "id": Uuid::new_v4().to_string(),
+            "type": "subscribe",
+            "topic": topic,
+            "privateChannel": false,
+            "response": true
+        }).to_string();
+        write.send(Message::Text(sub_msg)).await?;
+    }
 
     // KuCoin requires a ping every ~18-20 s
     let mut ping_tick = interval(Duration::from_secs(20));
     ping_tick.tick().await; // consume immediate tick
 
     // Topic prefix for stripping
-    let prefix = if is_futures {
-        "/contractMarket/ticker:"
-    } else {
-        "/market/ticker:"
-    };
+    let strip_prefix = if is_futures { "/contractMarket/ticker:" } else { "/market/ticker:" };
 
     loop {
         select! {
@@ -139,7 +134,7 @@ async fn connect_kucoin_once(
                         if msg_type != "message" { continue; }
 
                         let topic_str = v["topic"].as_str().unwrap_or("");
-                        let kucoin_sym = match topic_str.strip_prefix(prefix) {
+                        let kucoin_sym = match topic_str.strip_prefix(strip_prefix) {
                             Some(s) => s,
                             None    => continue,
                         };
