@@ -53,7 +53,7 @@ function SpreadChart({ history }: { history: Map<string, PricePoint[]> }) {
   if (minLen === 0) {
     return (
       <div style={PANEL}>
-        <div style={LABEL}>Spread · All Routes (%)</div>
+        <div style={LABEL}>Spread · Binance ↔ Bybit (%)</div>
         {EMPTY}
       </div>
     )
@@ -73,7 +73,7 @@ function SpreadChart({ history }: { history: Map<string, PricePoint[]> }) {
 
   return (
     <div style={PANEL}>
-      <div style={LABEL}>Spread · All Routes (%)</div>
+      <div style={LABEL}>Spread · Binance ↔ Bybit (%)</div>
       <ResponsiveContainer width="100%" height={150}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
           <XAxis dataKey="time" tick={AXIS_TICK} tickLine={false} axisLine={false} interval="preserveStartEnd" />

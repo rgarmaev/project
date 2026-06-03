@@ -44,7 +44,7 @@ export function TopOpportunities({ data, spotData }: Props) {
   })
 
   return (
-    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 6, padding: '12px 16px' }}>
+    <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 6, padding: '12px 16px', minHeight: 560 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>

@@ -1,45 +1,68 @@
 import { useEffect, useState } from 'react'
-import { MarketRow, MarketSnapshot } from '../types'
 
-type SortKey = keyof Pick<MarketRow,
-  'symbol' | 'binance_ask' | 'bybit_bid' | 'spread_ab' | 'bybit_ask' | 'binance_bid' | 'spread_ba'
->
+interface ExchangeQuote {
+  bid: number
+  ask: number
+}
 
-const EMPTY_SNAPSHOT: MarketSnapshot = { spot: [], perp: [] }
+interface MultiSymbolRow {
+  symbol: string
+  binance_spot: ExchangeQuote | null
+  bybit_spot:   ExchangeQuote | null
+  okx_spot:     ExchangeQuote | null
+  bingx_spot:   ExchangeQuote | null
+  bitget_spot:  ExchangeQuote | null
+  kucoin_spot:  ExchangeQuote | null
+  gate_spot:    ExchangeQuote | null
+  best_spread_pct: number
+  best_buy:  string
+  best_sell: string
+}
+
+const EXCHANGES: { key: keyof MultiSymbolRow; label: string; color: string }[] = [
+  { key: 'binance_spot', label: 'Binance', color: '#f0b90b' },
+  { key: 'bybit_spot',   label: 'Bybit',   color: '#f7a600' },
+  { key: 'okx_spot',     label: 'OKX',     color: '#00d4ff' },
+  { key: 'bingx_spot',   label: 'BingX',   color: '#00d4aa' },
+  { key: 'bitget_spot',  label: 'Bitget',  color: '#00aaff' },
+  { key: 'kucoin_spot',  label: 'KuCoin',  color: '#22bb66' },
+  { key: 'gate_spot',    label: 'Gate',    color: '#e6b800' },
+]
 
 function fmt(v: number): string {
-  if (v === 0) return '—'
+  if (v <= 0) return '—'
   if (v >= 1000) return v.toLocaleString('en', { maximumSignificantDigits: 6 })
-  return v.toPrecision(6)
+  if (v >= 1)    return v.toPrecision(5)
+  return v.toPrecision(4)
 }
 
 function fmtSpread(v: number): string {
-  return `${v >= 0 ? '+' : ''}${v.toFixed(4)}%`
+  return `${v >= 0 ? '+' : ''}${v.toFixed(3)}%`
 }
 
-const COL_HEADER: React.CSSProperties = {
-  padding: '6px 10px',
+const TH: React.CSSProperties = {
+  padding: '6px 8px',
   color: '#444',
   fontSize: 10,
-  textAlign: 'left' as const,
+  textAlign: 'right' as const,
   textTransform: 'uppercase' as const,
+  whiteSpace: 'nowrap' as const,
   cursor: 'pointer',
   userSelect: 'none' as const,
-  whiteSpace: 'nowrap' as const,
 }
 
 export function MarketScanner() {
-  const [data, setData] = useState<MarketSnapshot>(EMPTY_SNAPSHOT)
-  const [activeTab, setActiveTab] = useState<'spot' | 'perp'>('spot')
-  const [sortKey, setSortKey] = useState<SortKey>('spread_ab')
+  const [rows, setRows]       = useState<MultiSymbolRow[]>([])
+  const [search, setSearch]   = useState('')
+  const [sortKey, setSortKey] = useState<'symbol' | 'spread'>('spread')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     function load() {
-      fetch('/api/market')
+      fetch('/api/multi-snapshot')
         .then(r => r.json())
-        .then((d: MarketSnapshot) => { setData(d); setLoading(false) })
+        .then((d: MultiSymbolRow[]) => { setRows(d); setLoading(false) })
         .catch(() => {})
     }
     load()
@@ -47,73 +70,42 @@ export function MarketScanner() {
     return () => clearInterval(id)
   }, [])
 
-  function toggleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortKey(key)
-      setSortDir('desc')
-    }
+  function toggleSort(key: 'symbol' | 'spread') {
+    if (key === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
   }
 
-  const rows = data[activeTab]
-  const sorted = [...rows].sort((a, b) => {
-    const av = a[sortKey]
-    const bv = b[sortKey]
-    const cmp = typeof av === 'string'
-      ? av.localeCompare(bv as string)
-      : (av as number) - (bv as number)
+  const filtered = rows
+    .filter(r => !search.trim() || r.symbol.toLowerCase().includes(search.trim().toLowerCase()))
+
+  const sorted = [...filtered].sort((a, b) => {
+    const cmp = sortKey === 'symbol'
+      ? a.symbol.localeCompare(b.symbol)
+      : a.best_spread_pct - b.best_spread_pct
     return sortDir === 'asc' ? cmp : -cmp
   })
 
-  function arrow(key: SortKey) {
-    if (key !== sortKey) return ' '
+  function arrow(key: 'symbol' | 'spread') {
+    if (key !== sortKey) return ''
     return sortDir === 'asc' ? ' ▲' : ' ▼'
-  }
-
-  const columns: { label: string; key: SortKey; align?: 'right' }[] = [
-    { label: 'Пара',       key: 'symbol' },
-    { label: 'Bin Ask',    key: 'binance_ask',  align: 'right' },
-    { label: 'Byb Bid',    key: 'bybit_bid',    align: 'right' },
-    { label: 'B→Y Спред',  key: 'spread_ab',    align: 'right' },
-    { label: 'Byb Ask',    key: 'bybit_ask',    align: 'right' },
-    { label: 'Bin Bid',    key: 'binance_bid',  align: 'right' },
-    { label: 'Y→B Спред',  key: 'spread_ba',    align: 'right' },
-  ]
-
-  function tabBtn(label: string, key: 'spot' | 'perp') {
-    const active = activeTab === key
-    return (
-      <button
-        key={key}
-        onClick={() => setActiveTab(key)}
-        style={{
-          background: 'none',
-          border: `1px solid ${active ? '#00ff87' : '#2a2a2a'}`,
-          borderRadius: 4,
-          color: active ? '#00ff87' : '#444',
-          cursor: 'pointer',
-          padding: '3px 12px',
-          fontSize: 11,
-          fontFamily: 'inherit',
-          fontWeight: active ? 600 : 400,
-        }}
-      >
-        {label}
-      </button>
-    )
   }
 
   return (
     <div style={{ background: '#111', border: '1px solid #1f1f1f', borderRadius: 6, padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div style={{ color: '#666', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Спред по рынку · Binance vs Bybit
+          Спред по рынку · Все биржи · Spot ({filtered.length} пар)
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {tabBtn('Spot', 'spot')}
-          {tabBtn('Perp', 'perp')}
-        </div>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Поиск..."
+          style={{
+            background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 4,
+            color: '#e0e0e0', padding: '4px 8px', fontSize: 11,
+            fontFamily: 'inherit', outline: 'none', width: 120,
+          }}
+        />
       </div>
 
       {loading ? (
@@ -121,52 +113,68 @@ export function MarketScanner() {
           Загрузка...
         </div>
       ) : (
-        <div style={{ overflowY: 'auto', maxHeight: 400 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#111' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 440 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#111', zIndex: 1 }}>
               <tr>
-                {columns.map(col => (
-                  <th
-                    key={col.key}
-                    style={{ ...COL_HEADER, textAlign: col.align ?? 'left' }}
-                    onClick={() => toggleSort(col.key)}
-                  >
-                    {col.label}{arrow(col.key)}
+                <th style={{ ...TH, textAlign: 'left', cursor: 'pointer' }} onClick={() => toggleSort('symbol')}>
+                  Пара{arrow('symbol')}
+                </th>
+                {EXCHANGES.map(ex => (
+                  <th key={ex.key} style={{ ...TH, color: ex.color }}>
+                    {ex.label}
                   </th>
                 ))}
+                <th style={{ ...TH, cursor: 'pointer', color: '#e0e0e0' }} onClick={() => toggleSort('spread')}>
+                  Лучший спред{arrow('spread')}
+                </th>
+                <th style={{ ...TH }}>Купить</th>
+                <th style={{ ...TH }}>Продать</th>
               </tr>
             </thead>
             <tbody>
-              {sorted.map(row => (
-                <tr key={row.symbol} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                  <td style={{ padding: '5px 10px', color: '#888', fontSize: 12 }}>
-                    {row.symbol.replace('USDT', '')}<span style={{ color: '#444' }}>/USDT</span>
-                  </td>
-                  <td style={{ padding: '5px 10px', color: '#666', fontSize: 11, textAlign: 'right' }}>
-                    {fmt(row.binance_ask)}
-                  </td>
-                  <td style={{ padding: '5px 10px', color: '#666', fontSize: 11, textAlign: 'right' }}>
-                    {fmt(row.bybit_bid)}
-                  </td>
-                  <td style={{ padding: '5px 10px', fontSize: 11, textAlign: 'right', fontWeight: 600,
-                    color: row.spread_ab > 0 ? '#00ff87' : '#555' }}>
-                    {fmtSpread(row.spread_ab)}
-                  </td>
-                  <td style={{ padding: '5px 10px', color: '#666', fontSize: 11, textAlign: 'right' }}>
-                    {fmt(row.bybit_ask)}
-                  </td>
-                  <td style={{ padding: '5px 10px', color: '#666', fontSize: 11, textAlign: 'right' }}>
-                    {fmt(row.binance_bid)}
-                  </td>
-                  <td style={{ padding: '5px 10px', fontSize: 11, textAlign: 'right', fontWeight: 600,
-                    color: row.spread_ba > 0 ? '#00ff87' : '#555' }}>
-                    {fmtSpread(row.spread_ba)}
-                  </td>
-                </tr>
-              ))}
-              {sorted.length === 0 && (
+              {sorted.map(row => {
+                const spreadColor = row.best_spread_pct > 0.1 ? '#00ff87'
+                  : row.best_spread_pct > 0 ? '#888' : '#444'
+                return (
+                  <tr key={row.symbol} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <td style={{ padding: '4px 8px', color: '#888', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: '#e0e0e0', fontWeight: 600 }}>
+                        {row.symbol.replace('USDT', '')}
+                      </span>
+                      <span style={{ color: '#444' }}>/USDT</span>
+                    </td>
+                    {EXCHANGES.map(ex => {
+                      const q = row[ex.key] as ExchangeQuote | null
+                      return (
+                        <td key={ex.key} style={{ padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                          {q ? (
+                            <span style={{ color: '#555' }}>
+                              <span style={{ color: '#666' }}>{fmt(q.ask)}</span>
+                              <span style={{ color: '#2a2a2a' }}> / </span>
+                              <span style={{ color: '#444' }}>{fmt(q.bid)}</span>
+                            </span>
+                          ) : (
+                            <span style={{ color: '#222' }}>—</span>
+                          )}
+                        </td>
+                      )
+                    })}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: spreadColor, fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtSpread(row.best_spread_pct)}
+                    </td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', color: '#555', whiteSpace: 'nowrap' }}>
+                      {row.best_buy || '—'}
+                    </td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', color: '#555', whiteSpace: 'nowrap' }}>
+                      {row.best_sell || '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+              {sorted.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} style={{ padding: 16, color: '#333', textAlign: 'center', fontSize: 12 }}>
+                  <td colSpan={11} style={{ padding: 20, color: '#333', textAlign: 'center' }}>
                     Нет данных
                   </td>
                 </tr>
