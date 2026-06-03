@@ -11,7 +11,8 @@ use crate::tickers::TICKERS;
 use super::{MarketQuote, MultiPairState, MultiPairTick};
 
 pub async fn run_binance_spot(state: MultiPairState) {
-    run_binance(state, "wss://stream.binance.com:9443/ws/!bookTicker", false).await;
+    // port 443 instead of 9443 — 9443 is often blocked by firewalls
+    run_binance(state, "wss://stream.binance.com/ws/!bookTicker", false).await;
 }
 
 pub async fn run_binance_perp(state: MultiPairState) {

@@ -40,9 +40,12 @@ async fn connect_bybit_once(
     let (ws, _) = connect_async(url).await?;
     let (mut write, mut read) = ws.split();
 
+    // Bybit allows max 10 topics per subscribe message — send in batches
     let args: Vec<String> = TICKERS.iter().map(|s| format!("tickers.{}", s)).collect();
-    let sub = serde_json::json!({ "op": "subscribe", "args": args });
-    write.send(Message::Text(sub.to_string())).await?;
+    for chunk in args.chunks(10) {
+        let sub = serde_json::json!({ "op": "subscribe", "args": chunk });
+        write.send(Message::Text(sub.to_string())).await?;
+    }
 
     let mut ping_tick = interval(Duration::from_secs(20));
     ping_tick.tick().await;

@@ -67,24 +67,30 @@ pub struct MultiSymbolRow {
 pub async fn multi_snapshot_handler(
     State(state): State<Arc<DashboardState>>,
 ) -> Json<Vec<MultiSymbolRow>> {
-    let stale = Duration::from_millis(2000);
+    let stale = Duration::from_secs(30);
     let mut rows: Vec<MultiSymbolRow> = Vec::new();
 
     for entry in state.multi_feed.iter() {
         let sym  = entry.key().clone();
         let tick = entry.value();
 
-        let q = |opt: &Option<crate::multi_feed::MarketQuote>| {
-            opt.as_ref().filter(|q| q.updated_at.elapsed() <= stale).map(|q| ExchangeQuote { bid: q.bid, ask: q.ask })
+        // Returns spot quote if fresh, falls back to perp as indicative price
+        let q = |spot: &Option<crate::multi_feed::MarketQuote>,
+                  perp: &Option<crate::multi_feed::MarketQuote>| {
+            let pick = |opt: &Option<crate::multi_feed::MarketQuote>| {
+                opt.as_ref().filter(|q| q.updated_at.elapsed() <= stale)
+                   .map(|q| ExchangeQuote { bid: q.bid, ask: q.ask })
+            };
+            pick(spot).or_else(|| pick(perp))
         };
 
-        let binance = q(&tick.spot_binance);
-        let bybit   = q(&tick.spot_bybit);
-        let okx     = q(&tick.spot_okx);
-        let bingx   = q(&tick.spot_bingx);
-        let bitget  = q(&tick.spot_bitget);
-        let kucoin  = q(&tick.spot_kucoin);
-        let gate    = q(&tick.spot_gate);
+        let binance = q(&tick.spot_binance, &tick.perp_binance);
+        let bybit   = q(&tick.spot_bybit,   &tick.perp_bybit);
+        let okx     = q(&tick.spot_okx,     &tick.perp_okx);
+        let bingx   = q(&tick.spot_bingx,   &tick.perp_bingx);
+        let bitget  = q(&tick.spot_bitget,  &tick.perp_bitget);
+        let kucoin  = q(&tick.spot_kucoin,  &tick.perp_kucoin);
+        let gate    = q(&tick.spot_gate,    &tick.perp_gate);
 
         // Find best cross-exchange spread
         let markets: &[(&str, &Option<ExchangeQuote>)] = &[
