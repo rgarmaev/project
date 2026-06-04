@@ -8,6 +8,7 @@ import { StatusBar } from './components/StatusBar'
 import { SettingsPage } from './components/SettingsPage'
 import { ChartsRow } from './components/ChartsRow'
 import { MarketScanner } from './components/MarketScanner'
+import { TradesHistory } from './components/TradesHistory'
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
 
@@ -18,7 +19,7 @@ const EMPTY_METRICS = {
   fee_ratio: 0,
 }
 
-type Tab = 'dashboard' | 'settings'
+type Tab = 'dashboard' | 'history' | 'settings'
 
 function NavTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -53,6 +54,7 @@ export default function App() {
             MULTI ARB
           </span>
           <NavTab label="Дашборд" active={tab === 'dashboard'} onClick={() => setTab('dashboard')} />
+          <NavTab label="История" active={tab === 'history'} onClick={() => setTab('history')} />
           <NavTab label="Настройки" active={tab === 'settings'} onClick={() => setTab('settings')} />
         </div>
         <span style={{ color: '#333', fontSize: 11 }}>
@@ -60,7 +62,9 @@ export default function App() {
         </span>
       </div>
 
-      {tab === 'settings' ? (
+      {tab === 'history' ? (
+        <TradesHistory />
+      ) : tab === 'settings' ? (
         <SettingsPage />
       ) : (
         <>
