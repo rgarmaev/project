@@ -72,6 +72,50 @@ impl TradeStore {
         Ok(())
     }
 
+    pub(crate) fn load_stats_sync(&self) -> Result<StoredStats> {
+        let conn = self.conn.lock();
+        let (trade_count, wins, total_pnl, total_fees, total_gross, total_exec_ms):
+            (i64, i64, f64, f64, f64, i64) = conn.query_row(
+            "SELECT COUNT(*),
+                    SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END),
+                    COALESCE(SUM(net_pnl),    0),
+                    COALESCE(SUM(fees),        0),
+                    COALESCE(SUM(gross_pnl),   0),
+                    COALESCE(SUM(exec_ms),     0)
+             FROM trades",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+        )?;
+
+        let peak_pnl: f64 = conn.query_row(
+            "WITH running AS (
+                SELECT SUM(net_pnl) OVER (ORDER BY completed_at ROWS UNBOUNDED PRECEDING) AS cum
+                FROM trades
+             )
+             SELECT COALESCE(MAX(cum), 0) FROM running",
+            [],
+            |r| r.get(0),
+        )?;
+
+        Ok(StoredStats {
+            trade_count:   trade_count as usize,
+            wins:          wins as usize,
+            total_pnl,
+            total_fees,
+            total_gross,
+            total_exec_ms: total_exec_ms as u64,
+            peak_pnl,
+        })
+    }
+
+    pub async fn load_stats(&self) -> Result<StoredStats> {
+        let store = self.conn.clone();
+        task::spawn_blocking(move || {
+            let tmp = TradeStore { conn: store };
+            tmp.load_stats_sync()
+        }).await?
+    }
+
     pub async fn insert(&self, trade: &CompletedTrade) -> Result<()> {
         let id            = trade.id.to_string();
         let symbol        = trade.signal.symbol.clone();
@@ -122,6 +166,22 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM trades", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn load_stats_sums_correctly() {
+        let store = TradeStore::open(":memory:").unwrap();
+        store.insert_sync("a","BTCUSDT","Binance","Spot","OKX","Spot",
+            1.0,1.1,0.1,1.0, 0.10,0.02,0.08, 40,"2026-06-04T10:00:00Z").unwrap();
+        store.insert_sync("b","ETHUSDT","Binance","Spot","OKX","Spot",
+            1.0,1.1,0.1,1.0, 0.20,0.02,0.18, 60,"2026-06-04T10:01:00Z").unwrap();
+        let stats = store.load_stats_sync().unwrap();
+        assert_eq!(stats.trade_count, 2);
+        assert_eq!(stats.wins, 2);
+        assert!((stats.total_pnl  - 0.26).abs() < 1e-9);
+        assert!((stats.total_fees - 0.04).abs() < 1e-9);
+        assert!((stats.peak_pnl   - 0.26).abs() < 1e-9);
+        assert_eq!(stats.total_exec_ms, 100);
     }
 
     #[test]
