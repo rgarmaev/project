@@ -93,6 +93,7 @@ async fn main() -> Result<()> {
         scanner.clone(),
         multi_state.clone(),
         withdraw_state.clone(),
+        trade_store.clone(),
     );
 
     let detector = Arc::new(MultiPairDetector::new(

@@ -6,6 +6,7 @@ use crate::{
     orderbook::PriceState,
     pricing::imbalance,
     pricing::microprice,
+    trade_store::TradeStore,
     types::CompletedTrade,
     withdrawal_status::{WithdrawStatusMap, check_coin},
 };
@@ -100,6 +101,7 @@ pub struct DashboardState {
     pub scanner: Arc<MarketScanner>,
     pub multi_feed: MultiPairState,
     pub withdraw_status: WithdrawStatusMap,
+    pub trade_store: Arc<TradeStore>,
 }
 
 impl DashboardState {
@@ -110,6 +112,7 @@ impl DashboardState {
         scanner: Arc<MarketScanner>,
         multi_feed: MultiPairState,
         withdraw_status: WithdrawStatusMap,
+        trade_store: Arc<TradeStore>,
     ) -> Arc<Self> {
         let (broadcast_tx, _) = broadcast::channel(64);
         Arc::new(Self {
@@ -121,6 +124,7 @@ impl DashboardState {
             scanner,
             multi_feed,
             withdraw_status,
+            trade_store,
         })
     }
 
@@ -312,6 +316,7 @@ mod tests {
         let scanner = crate::market_scanner::MarketScanner::new();
         let multi_feed = crate::multi_feed::new_state();
         let withdraw_status = crate::withdrawal_status::new_status_map();
+        let trade_store = Arc::new(crate::trade_store::TradeStore::open(":memory:").unwrap());
         DashboardState::new(
             Arc::new(PriceState::new()),
             Arc::new(MetricsCollector::new()),
@@ -319,6 +324,7 @@ mod tests {
             scanner,
             multi_feed,
             withdraw_status,
+            trade_store,
         )
     }
 
