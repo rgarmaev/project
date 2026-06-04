@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
             trade_store::StoredStats {
                 trade_count: 0, wins: 0,
                 total_pnl: 0.0, total_fees: 0.0, total_gross: 0.0,
-                total_exec_ms: 0, peak_pnl: 0.0,
+                total_exec_ms: 0, peak_pnl: 0.0, max_drawdown: 0.0,
             }
         });
     let metrics = Arc::new(MetricsCollector::with_initial(stored_stats));

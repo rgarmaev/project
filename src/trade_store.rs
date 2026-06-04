@@ -18,6 +18,7 @@ pub struct StoredStats {
     pub total_gross:   f64,
     pub total_exec_ms: u64,
     pub peak_pnl:      f64,
+    pub max_drawdown:  f64,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -116,7 +117,7 @@ impl TradeStore {
         let (trade_count, wins, total_pnl, total_fees, total_gross, total_exec_ms):
             (i64, i64, f64, f64, f64, i64) = conn.query_row(
             "SELECT COUNT(*),
-                    SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END),
+                    COALESCE(SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(net_pnl),    0),
                     COALESCE(SUM(fees),        0),
                     COALESCE(SUM(gross_pnl),   0),
@@ -136,6 +137,16 @@ impl TradeStore {
             |r| r.get(0),
         )?;
 
+        let max_drawdown: f64 = conn.query_row(
+            "WITH running AS (
+                SELECT SUM(net_pnl) OVER (ORDER BY completed_at ROWS UNBOUNDED PRECEDING) AS cum
+                FROM trades
+             )
+             SELECT COALESCE(MAX(cum) - MIN(cum), 0) FROM running",
+            [],
+            |r| r.get(0),
+        )?;
+
         Ok(StoredStats {
             trade_count:   trade_count as usize,
             wins:          wins as usize,
@@ -144,6 +155,7 @@ impl TradeStore {
             total_gross,
             total_exec_ms: total_exec_ms as u64,
             peak_pnl,
+            max_drawdown,
         })
     }
 
@@ -259,25 +271,12 @@ impl TradeStore {
         let net: f64      = trade.net_pnl.to_string().parse().unwrap_or(0.0);
         let exec_ms       = trade.exec_ms;
         let completed_at  = trade.completed_at.to_rfc3339();
-        let store         = self.conn.clone();
+        let store = self.conn.clone();
         task::spawn_blocking(move || {
-            let conn = store.lock();
-            conn.execute(
-                "INSERT OR IGNORE INTO trades (
-                    id, symbol, buy_exchange, buy_market_type,
-                    sell_exchange, sell_market_type,
-                    buy_ask, sell_bid, spread_pct, quantity,
-                    gross_pnl, fees, net_pnl, exec_ms, completed_at
-                 ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
-                rusqlite::params![
-                    id, symbol, buy_ex, buy_mt, sell_ex, sell_mt,
-                    buy_ask, sell_bid, spread, qty, gross, fees, net,
-                    exec_ms as i64, completed_at
-                ],
-            )?;
-            Ok::<_, anyhow::Error>(())
-        }).await??;
-        Ok(())
+            let tmp = TradeStore { conn: store };
+            tmp.insert_sync(&id, &symbol, &buy_ex, &buy_mt, &sell_ex, &sell_mt,
+                buy_ask, sell_bid, spread, qty, gross, fees, net, exec_ms, &completed_at)
+        }).await?
     }
 }
 

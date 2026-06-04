@@ -74,7 +74,7 @@ impl MetricsCollector {
                 total_fees:      to_dec(s.total_fees),
                 total_gross_pnl: to_dec(s.total_gross),
                 peak_pnl:        to_dec(s.peak_pnl),
-                max_drawdown:    dec!(0),
+                max_drawdown:    to_dec(s.max_drawdown),
                 total_exec_ms:   s.total_exec_ms,
                 signals_sent:    0,
                 rejected_cooldown: 0,
@@ -214,7 +214,7 @@ mod tests {
         let stats = StoredStats {
             trade_count: 100, wins: 98,
             total_pnl: 50.0, total_fees: 5.0, total_gross: 55.0,
-            total_exec_ms: 5000, peak_pnl: 52.0,
+            total_exec_ms: 5000, peak_pnl: 52.0, max_drawdown: 3.0,
         };
         let mc = MetricsCollector::with_initial(stats);
         let snap = mc.snapshot();
