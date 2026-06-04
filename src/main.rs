@@ -1,4 +1,5 @@
 mod arbitrage;
+mod trade_store;
 mod config;
 mod dashboard;
 mod exchanges;
@@ -10,6 +11,7 @@ mod pricing;
 mod risk;
 mod tickers;
 mod types;
+mod doh;
 mod withdrawal_status;
 
 use anyhow::Result;
