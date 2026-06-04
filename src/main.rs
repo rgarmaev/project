@@ -35,6 +35,7 @@ use exchanges::{
 use market_scanner::MarketScanner;
 use metrics::MetricsCollector;
 use orderbook::PriceState;
+use trade_store::TradeStore;
 use risk::RiskManager;
 use types::MarketType;
 
@@ -68,7 +69,19 @@ async fn main() -> Result<()> {
     let kucoin  = Arc::new(KucoinConnector::new(config.clone()));
     let gate    = Arc::new(GateConnector::new(config.clone()));
     let risk    = Arc::new(RiskManager::new(config.risk.clone()));
-    let metrics = Arc::new(MetricsCollector::new());
+    let trade_store = Arc::new(
+        TradeStore::open("trades.db").expect("Failed to open trades.db")
+    );
+    let stored_stats = trade_store.load_stats().await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Could not load stored stats: {}", e);
+            trade_store::StoredStats {
+                trade_count: 0, wins: 0,
+                total_pnl: 0.0, total_fees: 0.0, total_gross: 0.0,
+                total_exec_ms: 0, peak_pnl: 0.0,
+            }
+        });
+    let metrics = Arc::new(MetricsCollector::with_initial(stored_stats));
     let scanner = MarketScanner::new();
     let multi_state    = multi_feed::new_state();
     let withdraw_state = withdrawal_status::new_status_map();
