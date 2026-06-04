@@ -1,6 +1,7 @@
 use anyhow::Result;
 use parking_lot::Mutex;
 use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::types::CompletedTrade;
 use tokio::task;
@@ -17,6 +18,44 @@ pub struct StoredStats {
     pub total_gross:   f64,
     pub total_exec_ms: u64,
     pub peak_pnl:      f64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct TradeFilter {
+    pub symbol:        Option<String>,
+    pub buy_exchange:  Option<String>,
+    pub sell_exchange: Option<String>,
+    pub from:          Option<String>,
+    pub to:            Option<String>,
+    pub min_spread:    Option<f64>,
+    pub max_spread:    Option<f64>,
+    pub page:          Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TradeRow {
+    pub id:               String,
+    pub symbol:           String,
+    pub buy_exchange:     String,
+    pub buy_market_type:  String,
+    pub sell_exchange:    String,
+    pub sell_market_type: String,
+    pub buy_ask:          f64,
+    pub sell_bid:         f64,
+    pub spread_pct:       f64,
+    pub quantity:         f64,
+    pub gross_pnl:        f64,
+    pub fees:             f64,
+    pub net_pnl:          f64,
+    pub exec_ms:          i64,
+    pub completed_at:     String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TradesPage {
+    pub total: i64,
+    pub page:  u32,
+    pub rows:  Vec<TradeRow>,
 }
 
 impl TradeStore {
@@ -116,6 +155,94 @@ impl TradeStore {
         }).await?
     }
 
+    pub(crate) fn query_sync(&self, f: TradeFilter) -> Result<TradesPage> {
+        const PAGE_SIZE: i64 = 50;
+        let page   = f.page.unwrap_or(0) as i64;
+        let offset = page * PAGE_SIZE;
+
+        let mut conditions: Vec<String> = Vec::new();
+        if f.symbol.is_some()        { conditions.push("symbol LIKE ?".into()); }
+        if f.buy_exchange.is_some()  { conditions.push("buy_exchange = ?".into()); }
+        if f.sell_exchange.is_some() { conditions.push("sell_exchange = ?".into()); }
+        if f.from.is_some()          { conditions.push("completed_at >= ?".into()); }
+        if f.to.is_some()            { conditions.push("completed_at <= ?".into()); }
+        if f.min_spread.is_some()    { conditions.push("spread_pct >= ?".into()); }
+        if f.max_spread.is_some()    { conditions.push("spread_pct <= ?".into()); }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        if let Some(s) = &f.symbol        { params.push(Box::new(format!("%{}%", s))); }
+        if let Some(s) = &f.buy_exchange  { params.push(Box::new(s.clone())); }
+        if let Some(s) = &f.sell_exchange { params.push(Box::new(s.clone())); }
+        if let Some(s) = &f.from         { params.push(Box::new(s.clone())); }
+        if let Some(s) = &f.to           { params.push(Box::new(s.clone())); }
+        if let Some(v) = f.min_spread    { params.push(Box::new(v)); }
+        if let Some(v) = f.max_spread    { params.push(Box::new(v)); }
+
+        let params_ref: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let conn = self.conn.lock();
+
+        let total: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM trades {}", where_clause),
+            params_ref.as_slice(),
+            |r| r.get(0),
+        )?;
+
+        let mut params2: Vec<Box<dyn rusqlite::ToSql>> = params;
+        params2.push(Box::new(PAGE_SIZE));
+        params2.push(Box::new(offset));
+        let params2_ref: Vec<&dyn rusqlite::ToSql> = params2.iter().map(|p| p.as_ref()).collect();
+
+        let sql = format!(
+            "SELECT id, symbol, buy_exchange, buy_market_type,
+                    sell_exchange, sell_market_type,
+                    buy_ask, sell_bid, spread_pct, quantity,
+                    gross_pnl, fees, net_pnl, exec_ms, completed_at
+             FROM trades {}
+             ORDER BY completed_at DESC
+             LIMIT ? OFFSET ?",
+            where_clause
+        );
+
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params2_ref.as_slice(), |r| {
+            Ok(TradeRow {
+                id:               r.get(0)?,
+                symbol:           r.get(1)?,
+                buy_exchange:     r.get(2)?,
+                buy_market_type:  r.get(3)?,
+                sell_exchange:    r.get(4)?,
+                sell_market_type: r.get(5)?,
+                buy_ask:          r.get(6)?,
+                sell_bid:         r.get(7)?,
+                spread_pct:       r.get(8)?,
+                quantity:         r.get(9)?,
+                gross_pnl:        r.get(10)?,
+                fees:             r.get(11)?,
+                net_pnl:          r.get(12)?,
+                exec_ms:          r.get(13)?,
+                completed_at:     r.get(14)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(TradesPage { total, page: page as u32, rows })
+    }
+
+    pub async fn query(&self, f: TradeFilter) -> Result<TradesPage> {
+        let store = self.conn.clone();
+        task::spawn_blocking(move || {
+            let tmp = TradeStore { conn: store };
+            tmp.query_sync(f)
+        }).await?
+    }
+
     pub async fn insert(&self, trade: &CompletedTrade) -> Result<()> {
         let id            = trade.id.to_string();
         let symbol        = trade.signal.symbol.clone();
@@ -182,6 +309,19 @@ mod tests {
         assert!((stats.total_fees - 0.04).abs() < 1e-9);
         assert!((stats.peak_pnl   - 0.26).abs() < 1e-9);
         assert_eq!(stats.total_exec_ms, 100);
+    }
+
+    #[test]
+    fn query_filters_by_symbol() {
+        let store = TradeStore::open(":memory:").unwrap();
+        store.insert_sync("a","BTCUSDT","Binance","Spot","OKX","Spot",
+            1.0,1.1,0.1,1.0,0.10,0.02,0.08,40,"2026-06-04T10:00:00Z").unwrap();
+        store.insert_sync("b","ETHUSDT","Binance","Spot","OKX","Spot",
+            1.0,1.1,0.1,1.0,0.10,0.02,0.08,40,"2026-06-04T10:01:00Z").unwrap();
+        let filter = TradeFilter { symbol: Some("ETH".into()), ..Default::default() };
+        let page = store.query_sync(filter).unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.rows[0].symbol, "ETHUSDT");
     }
 
     #[test]
