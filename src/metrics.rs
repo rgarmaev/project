@@ -1,5 +1,7 @@
+use crate::trade_store::StoredStats;
 use crate::types::CompletedTrade;
 use parking_lot::Mutex;
+use rust_decimal::prelude::FromStr;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Serialize;
@@ -58,6 +60,25 @@ impl MetricsCollector {
                 signals_sent: 0,
                 rejected_cooldown: 0,
                 rejected_risk: 0,
+            }),
+        }
+    }
+
+    pub fn with_initial(s: StoredStats) -> Self {
+        let to_dec = |v: f64| Decimal::from_str(&format!("{:.8}", v)).unwrap_or(dec!(0));
+        Self {
+            inner: Mutex::new(Inner {
+                trades:          s.trade_count,
+                wins:            s.wins,
+                total_pnl:       to_dec(s.total_pnl),
+                total_fees:      to_dec(s.total_fees),
+                total_gross_pnl: to_dec(s.total_gross),
+                peak_pnl:        to_dec(s.peak_pnl),
+                max_drawdown:    dec!(0),
+                total_exec_ms:   s.total_exec_ms,
+                signals_sent:    0,
+                rejected_cooldown: 0,
+                rejected_risk:   0,
             }),
         }
     }
@@ -185,5 +206,20 @@ mod tests {
     fn win_rate_zero_on_no_trades() {
         let mc = MetricsCollector::new();
         assert_eq!(mc.snapshot().win_rate, 0.0);
+    }
+
+    #[test]
+    fn with_initial_seeds_counters() {
+        use crate::trade_store::StoredStats;
+        let stats = StoredStats {
+            trade_count: 100, wins: 98,
+            total_pnl: 50.0, total_fees: 5.0, total_gross: 55.0,
+            total_exec_ms: 5000, peak_pnl: 52.0,
+        };
+        let mc = MetricsCollector::with_initial(stats);
+        let snap = mc.snapshot();
+        assert_eq!(snap.trades, 100);
+        assert!((snap.total_pnl  - 50.0).abs() < 1e-4);
+        assert!((snap.peak_pnl   - 52.0).abs() < 1e-4);
     }
 }
