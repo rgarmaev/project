@@ -114,6 +114,7 @@ async fn main() -> Result<()> {
         risk.clone(),
         metrics.clone(),
         dash_state.clone(),
+        trade_store.clone(),
     ));
 
     let mut set = JoinSet::new();

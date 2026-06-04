@@ -35,6 +35,7 @@ pub struct OrderExecutor {
     risk: Arc<RiskManager>,
     metrics: Arc<MetricsCollector>,
     dashboard: Arc<DashboardState>,
+    trade_store: Arc<crate::trade_store::TradeStore>,
 }
 
 impl OrderExecutor {
@@ -51,8 +52,9 @@ impl OrderExecutor {
         risk: Arc<RiskManager>,
         metrics: Arc<MetricsCollector>,
         dashboard: Arc<DashboardState>,
+        trade_store: Arc<crate::trade_store::TradeStore>,
     ) -> Self {
-        Self { config, price_state, binance, bybit, mexc, okx, bitget, kucoin, gate, risk, metrics, dashboard }
+        Self { config, price_state, binance, bybit, mexc, okx, bitget, kucoin, gate, risk, metrics, dashboard, trade_store }
     }
 
     pub async fn run(self: Arc<Self>, mut rx: mpsc::Receiver<ArbitrageSignal>) {
@@ -78,6 +80,9 @@ impl OrderExecutor {
                 self.risk.on_trade_close(trade.net_pnl);
                 self.metrics.record(&trade);
                 self.dashboard.push_trade(&trade);
+                if let Err(e) = self.trade_store.insert(&trade).await {
+                    tracing::warn!("Failed to persist trade {}: {}", trade.id, e);
+                }
             }
             Err(e) => {
                 error!("Execution failed for signal {}: {:#}", signal.id, e);
