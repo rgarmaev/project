@@ -3,7 +3,7 @@ symbol = "BTC"
 quote  = "USDT"
 
 # Minimum net spread (after fees) to trigger a trade: 0.05% = net after all exchange fees
-min_spread_pct   = "0.0015"
+min_spread_pct   = "0.0025"
 
 # USDT notional per leg
 trade_size_usdt  = "100"

@@ -2,8 +2,8 @@ use futures_util::{SinkExt, StreamExt};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::select;
-use tokio::time::{interval, sleep, timeout};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio::time::{interval, sleep};
+use tokio_tungstenite::tungstenite::Message;
 use tracing::warn;
 
 use crate::tickers::TICKERS;
@@ -48,16 +48,18 @@ async fn connect_bitget_once(
     is_futures: bool,
     sym_set: &HashSet<&str>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = timeout(Duration::from_secs(10), connect_async(BITGET_WS)).await
-        .map_err(|_| anyhow::anyhow!("Bitget WS connect timeout"))??;
+    let ws = crate::doh::connect_ws(BITGET_WS).await?;
     let (mut write, mut read) = ws.split();
 
     for msg in sub_msgs {
         write.send(Message::Text(msg.clone())).await?;
     }
 
-    let mut ping_tick = interval(Duration::from_secs(30));
-    ping_tick.tick().await; // consume immediate tick
+    let mut ping_tick    = interval(Duration::from_secs(30));
+    let mut data_timeout = interval(Duration::from_secs(45));
+    ping_tick.tick().await;    // consume immediate tick
+    data_timeout.tick().await; // consume immediate tick
+    let mut received_data = false;
 
     loop {
         select! {
@@ -70,6 +72,10 @@ async fn connect_bitget_once(
                 match msg {
                     Message::Text(text) => {
                         if text == "pong" { continue; }
+                        if !received_data {
+                            let side = if is_futures { "futures" } else { "spot" };
+                            warn!("Bitget {} raw: {}", side, &text[..text.len().min(300)]);
+                        }
                         let v: serde_json::Value = match serde_json::from_str(&text) {
                             Ok(v) => v,
                             Err(_) => continue,
@@ -82,13 +88,14 @@ async fn connect_bitget_once(
                             Some(d) => d,
                             None    => continue,
                         };
-                        let bid     = data["bidPx"].as_str().and_then(|s| s.parse::<f64>().ok());
-                        let ask     = data["askPx"].as_str().and_then(|s| s.parse::<f64>().ok());
+                        let bid     = data["bidPr"].as_str().and_then(|s| s.parse::<f64>().ok());
+                        let ask     = data["askPr"].as_str().and_then(|s| s.parse::<f64>().ok());
                         let bid_qty = data["bidSz"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                         let ask_qty = data["askSz"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
 
                         if let (Some(bid), Some(ask)) = (bid, ask) {
                             if bid > 0.0 && ask > 0.0 {
+                                received_data = true;
                                 let quote = MarketQuote { bid, ask, bid_qty, ask_qty, updated_at: Instant::now() };
                                 state.entry(sym)
                                     .and_modify(|t| {
@@ -112,6 +119,11 @@ async fn connect_bitget_once(
             }
             _ = ping_tick.tick() => {
                 write.send(Message::Text("ping".to_string())).await?;
+            }
+            _ = data_timeout.tick() => {
+                if !received_data {
+                    return Err(anyhow::anyhow!("no data received in 45s — server may have rejected subscription"));
+                }
             }
         }
     }

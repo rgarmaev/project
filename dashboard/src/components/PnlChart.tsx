@@ -27,9 +27,9 @@ export function PnlChart({ recentTrades }: Props) {
   const [history, setHistory] = useState<TradeRecord[]>([])
 
   useEffect(() => {
-    fetch('/api/trades?limit=500')
+    fetch('/api/trades?page=0')
       .then(r => r.json())
-      .then((data: TradeRecord[]) => setHistory(data))
+      .then((data: { rows: TradeRecord[] }) => setHistory(data.rows ?? []))
       .catch(() => {})
   }, [])
 

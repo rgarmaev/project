@@ -3,7 +3,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::select;
-use tokio::time::{interval, sleep};
+use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::warn;
 
@@ -44,7 +44,8 @@ async fn connect_gate_once(
     is_futures: bool,
     sym_map: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(url).await?;
+    let (ws, _) = timeout(Duration::from_secs(10), connect_async(url)).await
+        .map_err(|_| anyhow::anyhow!("connect timeout"))??;
     let (mut write, mut read) = ws.split();
 
     // Build payload list of "BTC_USDT", "ETH_USDT", ...

@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface TradeRow {
   id: string; symbol: string
@@ -19,6 +18,25 @@ function fmt(v: number, d = 4) { return v.toFixed(d) }
 function fmtTime(s: string) {
   const d = new Date(s)
   return `${d.toLocaleDateString('ru')} ${d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+}
+
+function MiniLineChart({ points }: { points: number[] }) {
+  if (points.length < 2) return null
+  const W = 800, H = 80, PAD = 4
+  const min = Math.min(...points), max = Math.max(...points)
+  const range = max - min || 1
+  const xs = points.map((_, i) => PAD + (i / (points.length - 1)) * (W - PAD * 2))
+  const ys = points.map(v => H - PAD - ((v - min) / range) * (H - PAD * 2))
+  const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const last = points[points.length - 1]
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 80 }}>
+      <path d={d} fill="none" stroke="#00ff87" strokeWidth="1.5" />
+      <text x={W - PAD} y={ys[ys.length - 1]} fill="#00ff87" fontSize="10" textAnchor="end" dy="-3">
+        ${last.toFixed(4)}
+      </text>
+    </svg>
+  )
 }
 
 export function TradesHistory() {
@@ -183,20 +201,7 @@ export function TradesHistory() {
             letterSpacing: '0.05em', marginBottom: 6 }}>
             Кумулятивный P&L (текущая страница)
           </div>
-          <ResponsiveContainer width="100%" height={120}>
-            <LineChart data={chartData}>
-              <XAxis dataKey="t" hide />
-              <YAxis width={55} tick={{ fill: '#444', fontSize: 10 }}
-                tickFormatter={(v: number) => `$${v.toFixed(2)}`} />
-              <Tooltip
-                contentStyle={{ background: '#1a1a1a', border: '1px solid #333', fontSize: 11 }}
-                formatter={(v: number) => [`$${v.toFixed(4)}`, 'P&L']}
-                labelStyle={{ color: '#666' }}
-              />
-              <Line type="monotone" dataKey="cum" stroke="#00ff87"
-                dot={false} strokeWidth={1.5} />
-            </LineChart>
-          </ResponsiveContainer>
+          <MiniLineChart points={chartData.map(d => d.cum)} />
         </div>
       )}
     </div>

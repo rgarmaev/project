@@ -4,9 +4,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::select;
-use tokio::time::{interval, sleep};
+use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::tickers::TICKERS;
 use super::{MarketQuote, MultiPairState, MultiPairTick};
@@ -37,11 +37,16 @@ async fn connect_bybit_once(
     is_perp: bool,
     valid: &HashSet<&str>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = connect_async(url).await?;
+    info!("multi_feed: Bybit {} connecting → {}", if is_perp { "linear" } else { "spot" }, url);
+    let (ws, _) = timeout(Duration::from_secs(10), connect_async(url)).await
+        .map_err(|_| anyhow::anyhow!("connect timeout"))??;
+    info!("multi_feed: Bybit {} connected", if is_perp { "linear" } else { "spot" });
     let (mut write, mut read) = ws.split();
 
-    // Bybit allows max 10 topics per subscribe message — send in batches
-    let args: Vec<String> = TICKERS.iter().map(|s| format!("tickers.{}", s)).collect();
+    // Spot: orderbook.1 sends immediate snapshots (tickers only sends deltas, no initial snapshot)
+    // Linear: tickers sends snapshot + delta with bid1Price/ask1Price
+    let topic_prefix = if is_perp { "tickers." } else { "orderbook.1." };
+    let args: Vec<String> = TICKERS.iter().map(|s| format!("{}{}", topic_prefix, s)).collect();
     for chunk in args.chunks(10) {
         let sub = serde_json::json!({ "op": "subscribe", "args": chunk });
         write.send(Message::Text(sub.to_string())).await?;
@@ -65,14 +70,26 @@ async fn connect_bybit_once(
                             Err(_) => continue,
                         };
                         let topic = v["topic"].as_str().unwrap_or("");
-                        if !topic.starts_with("tickers.") { continue; }
-                        let sym = &topic["tickers.".len()..];
+                        if !topic.starts_with(topic_prefix) { continue; }
+                        let sym = &topic[topic_prefix.len()..];
                         if !valid.contains(sym) { continue; }
-                        let data = &v["data"];
-                        let bid     = data["bid1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
-                        let ask     = data["ask1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
-                        let bid_qty = data["bid1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-                        let ask_qty = data["ask1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                        let (bid, ask, bid_qty, ask_qty) = if is_perp {
+                            // tickers: bid1Price/ask1Price
+                            let data = &v["data"];
+                            let bid     = data["bid1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
+                            let ask     = data["ask1Price"].as_str().and_then(|s| s.parse::<f64>().ok());
+                            let bid_qty = data["bid1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                            let ask_qty = data["ask1Size"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                            (bid, ask, bid_qty, ask_qty)
+                        } else {
+                            // orderbook.1: data.b[0] = [price, qty], data.a[0] = [price, qty]
+                            let data = &v["data"];
+                            let bid     = data["b"][0][0].as_str().and_then(|s| s.parse::<f64>().ok());
+                            let ask     = data["a"][0][0].as_str().and_then(|s| s.parse::<f64>().ok());
+                            let bid_qty = data["b"][0][1].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                            let ask_qty = data["a"][0][1].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                            (bid, ask, bid_qty, ask_qty)
+                        };
                         if let (Some(bid), Some(ask)) = (bid, ask) {
                             if bid > 0.0 && ask > 0.0 {
                                 let quote = MarketQuote { bid, ask, bid_qty, ask_qty, updated_at: Instant::now() };

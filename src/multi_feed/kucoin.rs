@@ -87,8 +87,7 @@ async fn connect_kucoin_once(
     is_futures: bool,
     sym_map: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
-    let (ws, _) = timeout(Duration::from_secs(10), connect_async(url)).await
-        .map_err(|_| anyhow::anyhow!("KuCoin WS connect timeout"))??;
+    let ws = crate::doh::connect_ws(url).await?;
     let (mut write, mut read) = ws.split();
 
     // KuCoin topic string limit — send in batches of 50 symbols
